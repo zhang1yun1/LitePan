@@ -29,7 +29,7 @@ func ParseModeOctal(s string, def uint32) (uint32, error) {
 	return uint32(n), nil
 }
 
-func NormalizeMountPoint(raw string) (string, error) {
+func NormalizeMountPoint(raw string, rootOverride ...string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return "", domain.Errorf(domain.CodeValidation, "挂载点不能为空")
@@ -38,14 +38,18 @@ func NormalizeMountPoint(raw string) (string, error) {
 		return "", domain.Errorf(domain.CodeValidation, "挂载点必须是绝对路径")
 	}
 	clean := path.Clean(raw)
-	root := path.Clean(MountRoot)
+	root := MountRoot
+	if len(rootOverride) > 0 && strings.TrimSpace(rootOverride[0]) != "" {
+		root = rootOverride[0]
+	}
+	root = path.Clean(root)
 	if clean != root && !strings.HasPrefix(clean, root+"/") {
 		return "", domain.Errorf(domain.CodeValidation, "挂载点必须在 %s 目录下", root)
 	}
 	return clean, nil
 }
 
-func ValidateMount(m *domain.FuseMount, all []*domain.FuseMount, excludeID int64) error {
+func ValidateMount(m *domain.FuseMount, all []*domain.FuseMount, excludeID int64, rootOverride ...string) error {
 	if m == nil {
 		return domain.Errorf(domain.CodeValidation, "挂载配置无效")
 	}
@@ -60,7 +64,7 @@ func ValidateMount(m *domain.FuseMount, all []*domain.FuseMount, excludeID int64
 	if strings.TrimSpace(m.RootItemID) == "" {
 		return domain.Errorf(domain.CodeValidation, "请选择源目录")
 	}
-	mp, err := NormalizeMountPoint(m.MountPoint)
+	mp, err := NormalizeMountPoint(m.MountPoint, rootOverride...)
 	if err != nil {
 		return err
 	}

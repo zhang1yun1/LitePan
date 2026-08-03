@@ -100,6 +100,22 @@ func NewService(opts ServiceOptions) *Service {
 	}
 }
 
+func (s *Service) StrmDir() string {
+	if s == nil {
+		return ""
+	}
+	if s.settings != nil {
+		if dir := strings.TrimSpace(s.settings.StrmDir()); dir != "" {
+			return filepath.Clean(dir)
+		}
+	}
+	strmDir := strings.TrimSpace(s.strmDir)
+	if strmDir != "" {
+		return filepath.Clean(strmDir)
+	}
+	return filepath.Join(filepath.Dir(filepath.Clean(s.dataDir)), "strm")
+}
+
 func (s *Service) SetOrganizeBusyChecker(checker RunningAccountLister) {
 	if s == nil {
 		return
@@ -325,7 +341,7 @@ func (s *Service) DeleteTask(ctx context.Context, id int64, deleteStrmFiles bool
 		outputFolder = task.Name
 	}
 	if deleteStrmFiles {
-		if err := DeleteTaskOutput(s.strmDir, outputFolder); err != nil {
+		if err := DeleteTaskOutput(s.StrmDir(), outputFolder); err != nil {
 			return err
 		}
 	}
@@ -448,7 +464,7 @@ func (s *Service) ReplaceBaseURL(ctx context.Context, newBaseURL string) (Replac
 	if err := ValidateBaseURL(base); err != nil {
 		return ReplaceBaseURLResult{}, domain.Errorf(domain.CodeValidation, "%s", err.Error())
 	}
-	result, err := ReplaceBaseURLInFiles(s.strmDir, base)
+	result, err := ReplaceBaseURLInFiles(s.StrmDir(), base)
 	if err != nil {
 		return result, err
 	}
@@ -462,7 +478,7 @@ func (s *Service) PrecheckAccountRepair(ctx context.Context, in AccountRepairPre
 	if s == nil {
 		return AccountRepairPrecheckResult{}, domain.Errorf(domain.CodeInternal, "strm service unavailable")
 	}
-	return PrecheckAccountRepair(ctx, s.files, s.strmDir, in)
+	return PrecheckAccountRepair(ctx, s.files, s.StrmDir(), in)
 }
 
 func (s *Service) RepairAccountReferences(ctx context.Context, in AccountRepairInput) (AccountRepairResult, error) {
@@ -473,7 +489,7 @@ func (s *Service) RepairAccountReferences(ctx context.Context, in AccountRepairI
 	if err != nil {
 		return AccountRepairResult{}, err
 	}
-	return RepairAccountReferences(ctx, s.files, s.strmDir, s.scanBaseURL(), token, s.SignatureEnabled(), s.secret, in)
+	return RepairAccountReferences(ctx, s.files, s.StrmDir(), s.scanBaseURL(), token, s.SignatureEnabled(), s.secret, in)
 }
 
 func (s *Service) MatchToken(ctx context.Context, token string) (bool, error) {

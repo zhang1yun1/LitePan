@@ -103,7 +103,7 @@ func intp(n int) *int { return &n }
 
 // defaultSpecs 是全部全局设置的有序声明。新增全局设置只改这里。
 func defaultSpecs() []Spec {
-	return []Spec{
+	specs := []Spec{
 		{
 			Key:         KeyOAuthServerURL,
 			Type:        TypeString,
@@ -584,12 +584,15 @@ func defaultSpecs() []Spec {
 			Default:     "false",
 		},
 	}
+	specs = append(specs, pathsSpecs()...)
+	return specs
 }
 
 // categories 返回有序分组定义；只保留当前实际用到的分组。
 func categories() []Category {
 	return []Category{
 		{ID: "system", Label: "系统设置"},
+		{ID: "paths", Label: "存储路径"},
 		{ID: "performance", Label: "性能设置"},
 		{ID: "strm", Label: "STRM 设置"},
 		{ID: "media_organize", Label: "媒体整理设置"},

@@ -14,43 +14,7 @@ DIST_DIR="${ROOT_DIR}/dist"
 ADDON_ID="service.litepan"
 ADDON_DIR="${BUILD_DIR}/${ADDON_ID}"
 
-CONSTANTS_FILE="${ROOT_DIR}/internal/fusemount/constants.go"
-CONSTANTS_BAK="${ROOT_DIR}/internal/fusemount/constants.go.bak"
 
-# 自动清理还原 Patch 钩子
-cleanup_patch() {
-    if [ -f "${CONSTANTS_BAK}" ]; then
-        echo " -> 正在自动还原源码 (${CONSTANTS_FILE})..."
-        mv "${CONSTANTS_BAK}" "${CONSTANTS_FILE}"
-    fi
-}
-trap cleanup_patch EXIT INT TERM
-
-# 应用 MountRoot 动态注入补丁 (默认挂载根目录设为 /storage/videos/mount)
-apply_mount_patch() {
-    if [ -f "${CONSTANTS_FILE}" ] && [ ! -f "${CONSTANTS_BAK}" ]; then
-        echo " -> 正在应用 MountRoot 动态目录补丁 (支持 LITEPAN_MOUNT_DIR 环境变量，默认 /storage/videos/mount)..."
-        cp "${CONSTANTS_FILE}" "${CONSTANTS_BAK}"
-        cat <<'EOF' > "${CONSTANTS_FILE}"
-package fusemount
-
-import "os"
-
-var MountRoot = func() string {
-	if v := os.Getenv("LITEPAN_MOUNT_DIR"); v != "" {
-		return v
-	}
-	return "/storage/videos/mount"
-}()
-
-const (
-	KeyEnabled           = "fuse_enabled"
-	DefaultEntryTimeoutS = 30
-	DefaultAttrTimeoutS  = 3
-)
-EOF
-    fi
-}
 
 # 版本信息（自动从代码中提取或默认）
 VERSION="v0.4.4-Beta"
@@ -100,33 +64,36 @@ compile_go() {
     echo "    编译成功: ${out_name}"
 }
 
-# 1. 编译/复制二进制文件
+# 1. 自动编译前端 Web 静态资源 (npm run build)
+if [ -d "${ROOT_DIR}/web" ]; then
+    echo "[1/5] 正在构建前端 Web 界面静态资源 (npm run build)..."
+    (cd "${ROOT_DIR}/web" && npm run build)
+fi
+
+# 2. 编译/复制二进制文件
 if [ -f "${ARCH_PARAM}" ]; then
-    echo "[1/4] 使用用户指定的预编译二进制文件: ${ARCH_PARAM}"
+    echo "[2/5] 使用用户指定的预编译二进制文件: ${ARCH_PARAM}"
     cp "${ARCH_PARAM}" "${ADDON_DIR}/bin/litepan"
     chmod +x "${ADDON_DIR}/bin/litepan"
     ZIP_ARCH_TAG="custom"
 elif [ "${ARCH_PARAM}" = "armv7" ] || [ "${ARCH_PARAM}" = "arm7" ] || [ "${ARCH_PARAM}" = "arm32" ]; then
-    echo "[1/4] 应用动态补丁并开始编译 ARMv7 (32位 Linux ARM) 二进制..."
-    apply_mount_patch
+    echo "[2/5] 开始编译 ARMv7 (32位 Linux ARM) 二进制..."
     compile_go "linux" "arm" "7" "litepan_armv7"
     ZIP_ARCH_TAG="armv7"
 elif [ "${ARCH_PARAM}" = "arm64" ] || [ "${ARCH_PARAM}" = "aarch64" ]; then
-    echo "[1/4] 应用动态补丁并开始编译 ARM64 (64位 Linux ARM) 二进制..."
-    apply_mount_patch
+    echo "[2/5] 开始编译 ARM64 (64位 Linux ARM) 二进制..."
     compile_go "linux" "arm64" "" "litepan_arm64"
     ZIP_ARCH_TAG="arm64"
 else
     # 默认全架构打包 (同时打入 ARMv7 和 ARM64，实现 CoreELEC 双架构全兼容)
-    echo "[1/4] 应用动态补丁并开始编译双架构 (ARMv7 32位 + ARM64 64位) 通用二进制..."
-    apply_mount_patch
+    echo "[2/5] 开始编译双架构 (ARMv7 32位 + ARM64 64位) 通用二进制..."
     compile_go "linux" "arm" "7" "litepan_armv7"
     compile_go "linux" "arm64" "" "litepan_arm64"
     ZIP_ARCH_TAG="universal"
 fi
 
-# 2. 生成 Kodi 插件描述文件 (addon.xml)
-echo "[2/4] 生成 Kodi 插件描述文件 (addon.xml)..."
+# 3. 生成 Kodi 插件描述文件 (addon.xml)
+echo "[3/5] 生成 Kodi 插件描述文件 (addon.xml)..."
 cat <<EOF > "${ADDON_DIR}/addon.xml"
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addon id="${ADDON_ID}" name="LitePan Background Service" version="${KODI_VERSION}" provider-name="LitePan">
@@ -146,8 +113,8 @@ cat <<EOF > "${ADDON_DIR}/addon.xml"
 </addon>
 EOF
 
-# 3. 生成支持多架构自动判断及 CoreELEC 专属路径配置的 Kodi 服务守护脚本 (service.py)
-echo "[3/4] 生成 CoreELEC 专属路径配置的 Kodi 服务守护脚本 (service.py)..."
+# 4. 生成支持多架构自动判断及 CoreELEC 专属路径配置的 Kodi 服务守护脚本 (service.py)
+echo "[4/5] 生成 CoreELEC 专属路径配置的 Kodi 服务守护脚本 (service.py)..."
 cat <<'EOF' > "${ADDON_DIR}/service.py"
 # -*- coding: utf-8 -*-
 import os
@@ -295,7 +262,7 @@ fi
 ZIP_NAME="service.litepan-${VERSION}-${ZIP_ARCH_TAG}.zip"
 OUTPUT_ZIP="${DIST_DIR}/${ZIP_NAME}"
 
-echo "[4/4] 正在打包成 Kodi 插件包 (ZIP)..."
+echo "[5/5] 正在打包成 Kodi 插件包 (ZIP)..."
 cd "${BUILD_DIR}"
 rm -f "${OUTPUT_ZIP}"
 zip -q -r "${OUTPUT_ZIP}" "${ADDON_ID}"

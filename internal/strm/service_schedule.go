@@ -160,7 +160,7 @@ func (s *Service) runTaskAsync(task *domain.StrmTask) {
 			Files:       s.files,
 			Branches:    s.branches,
 			Playback:    s.playback,
-			StrmDir:     s.strmDir,
+			StrmDir:     s.StrmDir(),
 			BaseURL:     s.scanBaseURL(),
 			Token:       token,
 			SignEnabled: s.settings.Bool(settings.KeyStrmSignatureEnabled),
