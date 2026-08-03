@@ -72,14 +72,15 @@ jobs:
           VERSION="${{ steps.get_info.outputs.VERSION }}"
           ZIP_FILE="${{ steps.get_info.outputs.ZIP_FILE }}"
           
-          echo "Releasing version ${VERSION} with asset ${ZIP_FILE}..."
+          echo "Releasing version ${VERSION} with asset ${ZIP_FILE} to repository ${{ github.repository }}..."
           
-          if gh release view "${VERSION}" >/dev/null 2>&1; then
-            echo "Release ${VERSION} already exists, uploading asset..."
-            gh release upload "${VERSION}" "${ZIP_FILE}" --clobber
+          if gh release view "${VERSION}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release ${VERSION} already exists in ${{ github.repository }}, uploading asset..."
+            gh release upload "${VERSION}" "${ZIP_FILE}" --clobber --repo "${{ github.repository }}"
           else
-            echo "Release ${VERSION} does not exist, creating release..."
+            echo "Release ${VERSION} does not exist in ${{ github.repository }}, creating release..."
             gh release create "${VERSION}" "${ZIP_FILE}" \
+              --repo "${{ github.repository }}" \
               --title "LitePan Kodi Addon ${VERSION}" \
               --notes "Auto-built Kodi Addon release synchronized from upstream Ponphil/LitePan."
           fi
