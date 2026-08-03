@@ -46,11 +46,13 @@ jobs:
           cache: 'npm'
           cache-dependency-path: 'web/package-lock.json'
 
-      - name: Install Web Dependencies
+      - name: Install & Build Web Frontend
         run: |
           if [ -d "web" ]; then
             cd web
             npm ci || npm install
+            echo "Building Web frontend once for all architecture targets..."
+            npm run build
           fi
 
       - name: Install Build Tools
@@ -62,11 +64,11 @@ jobs:
         run: |
           chmod +x ./build_kodi_addon.sh
           echo "Building Universal package..."
-          ./build_kodi_addon.sh universal
+          SKIP_BUILD_WEB=1 ./build_kodi_addon.sh universal
           echo "Building ARMv7 package..."
-          ./build_kodi_addon.sh armv7
+          SKIP_BUILD_WEB=1 ./build_kodi_addon.sh armv7
           echo "Building ARM64 package..."
-          ./build_kodi_addon.sh arm64
+          SKIP_BUILD_WEB=1 ./build_kodi_addon.sh arm64
 
       - name: Determine Version and Locate Assets
         id: get_info

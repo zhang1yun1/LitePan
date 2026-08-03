@@ -66,8 +66,12 @@ compile_go() {
 
 # 1. 自动编译前端 Web 静态资源 (npm run build)
 if [ -d "${ROOT_DIR}/web" ]; then
-    echo "[1/5] 正在构建前端 Web 界面静态资源 (npm run build)..."
-    (cd "${ROOT_DIR}/web" && npm run build)
+    if [ "${SKIP_BUILD_WEB}" = "1" ] || [ "${SKIP_WEB_BUILD}" = "1" ]; then
+        echo "[1/5] 检测到 SKIP_BUILD_WEB=1，跳过前端 Web 界面重复构建..."
+    else
+        echo "[1/5] 正在构建前端 Web 界面静态资源 (npm run build)..."
+        (cd "${ROOT_DIR}/web" && npm run build)
+    fi
 fi
 
 # 2. 编译/复制二进制文件
