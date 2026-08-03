@@ -1,0 +1,82 @@
+name: Sync Upstream & Release Kodi Addon
+
+on:
+  schedule:
+    - cron: '0 4 * * *' # 每天 UTC 04:00 (北京时间 12:00) 自动检查并同步运行
+  workflow_dispatch: # 支持在 GitHub Web 界面手动一键触发
+
+permissions:
+  contents: write
+
+jobs:
+  sync-build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync with Upstream
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/Ponphil/LitePan.git || true
+          git fetch upstream main
+          
+          # 尝试合并上游 main 分支
+          if ! git merge upstream/main --no-edit; then
+            echo "Merge encountered conflicts, enforcing upstream state..."
+            git merge --abort || true
+            git reset --hard upstream/main
+          fi
+          
+          # 推送更新后的代码至本 Fork 仓库
+          git push origin main || echo "No changes to push or push skipped."
+
+      - name: Setup Go Environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Install Build Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zip curl
+
+      - name: Run Kodi Addon Build Script
+        run: |
+          chmod +x ./build_kodi_addon.sh
+          ./build_kodi_addon.sh all
+
+      - name: Determine Version and Locate Asset
+        id: get_info
+        run: |
+          VERSION="v0.4.4-Beta"
+          if [ -f "internal/httpx/user_agent.go" ]; then
+            EXTRACTED_VER=$(grep 'AppVersion =' internal/httpx/user_agent.go | cut -d '"' -f 2)
+            if [ -n "${EXTRACTED_VER}" ]; then
+              VERSION="${EXTRACTED_VER}"
+            fi
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          
+          ZIP_FILE=$(ls dist/service.litepan-*.zip | head -n 1)
+          echo "ZIP_FILE=${ZIP_FILE}" >> $GITHUB_OUTPUT
+          echo "Found ZIP package: ${ZIP_FILE}"
+
+      - name: Create or Update GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.get_info.outputs.VERSION }}"
+          ZIP_FILE="${{ steps.get_info.outputs.ZIP_FILE }}"
+          
+          echo "Releasing version ${VERSION} with asset ${ZIP_FILE}..."
+          
+          gh release create "${VERSION}" "${ZIP_FILE}" \
+            --title "LitePan Kodi Addon ${VERSION}" \
+            --notes "Auto-built Kodi Addon release synchronized from upstream Ponphil/LitePan." \
+            --clobber || \
+          gh release upload "${VERSION}" "${ZIP_FILE}" --clobber
