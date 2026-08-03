@@ -27,9 +27,8 @@ jobs:
           
           # 尝试合并上游 main 分支
           if ! git merge upstream/main --no-edit; then
-            echo "Merge encountered conflicts, enforcing upstream state..."
+            echo "Merge encountered conflicts, aborting merge to preserve local files..."
             git merge --abort || true
-            git reset --hard upstream/main
           fi
           
           # 推送更新后的代码至本 Fork 仓库
