@@ -75,8 +75,12 @@ jobs:
           
           echo "Releasing version ${VERSION} with asset ${ZIP_FILE}..."
           
-          gh release create "${VERSION}" "${ZIP_FILE}" \
-            --title "LitePan Kodi Addon ${VERSION}" \
-            --notes "Auto-built Kodi Addon release synchronized from upstream Ponphil/LitePan." \
-            --clobber || \
-          gh release upload "${VERSION}" "${ZIP_FILE}" --clobber
+          if gh release view "${VERSION}" >/dev/null 2>&1; then
+            echo "Release ${VERSION} already exists, uploading asset..."
+            gh release upload "${VERSION}" "${ZIP_FILE}" --clobber
+          else
+            echo "Release ${VERSION} does not exist, creating release..."
+            gh release create "${VERSION}" "${ZIP_FILE}" \
+              --title "LitePan Kodi Addon ${VERSION}" \
+              --notes "Auto-built Kodi Addon release synchronized from upstream Ponphil/LitePan."
+          fi
