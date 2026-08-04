@@ -2,7 +2,7 @@ name: Sync Upstream & Release Kodi Addon
 
 on:
   schedule:
-    - cron: '0 4 * * *' # 每天 UTC 04:00 (北京时间 12:00) 自动检查并同步运行
+    - cron: '18 4 * * *' # 每天 UTC 04:18 (北京时间 12:18) 避开整点高峰自动检查并同步运行
   workflow_dispatch: # 支持在 GitHub Web 界面手动一键触发
 
 permissions:
