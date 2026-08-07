@@ -2,7 +2,7 @@ name: Sync Upstream & Release Kodi Addon
 
 on:
   schedule:
-    - cron: '18 4 * * *' # 每天 UTC 04:18 (北京时间 12:18) 避开整点高峰自动检查并同步运行
+    - cron: '*/5 * * * *' # 每 5 分钟自动检查一次上游是否有代码更新
   workflow_dispatch: # 支持在 GitHub Web 界面手动一键触发
 
 permissions:
@@ -18,28 +18,42 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Sync with Upstream
+      - name: Sync with Upstream & Check Updates
+        id: sync
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote add upstream https://github.com/Ponphil/LitePan.git || true
           git fetch upstream main
-          
-          # 尝试合并上游 main 分支
-          if ! git merge upstream/main --no-edit; then
-            echo "Merge encountered conflicts, aborting merge to preserve local files..."
-            git merge --abort || true
+
+          LOCAL_SHA=$(git rev-parse HEAD)
+          UPSTREAM_SHA=$(git rev-parse upstream/main)
+
+          echo "Local Commit SHA:    ${LOCAL_SHA}"
+          echo "Upstream Commit SHA: ${UPSTREAM_SHA}"
+
+          # 判断上游代码变动（如果是定时触发且没有新 Commit 则跳过打包）
+          if [ "${LOCAL_SHA}" = "${UPSTREAM_SHA}" ] && [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "No new commit from upstream. Skipping build and release."
+            echo "has_update=false" >> $GITHUB_OUTPUT
+          else
+            echo "New updates detected (or manually triggered). Merging upstream code..."
+            if ! git merge upstream/main --no-edit; then
+              echo "Merge encountered conflicts, aborting merge to preserve local files..."
+              git merge --abort || true
+            fi
+            git push origin main || echo "No changes to push or push skipped."
+            echo "has_update=true" >> $GITHUB_OUTPUT
           fi
-          
-          # 推送更新后的代码至本 Fork 仓库
-          git push origin main || echo "No changes to push or push skipped."
 
       - name: Setup Go Environment
+        if: steps.sync.outputs.has_update == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: 'stable'
 
       - name: Setup Node.js Environment
+        if: steps.sync.outputs.has_update == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -47,6 +61,7 @@ jobs:
           cache-dependency-path: 'web/package-lock.json'
 
       - name: Install & Build Web Frontend
+        if: steps.sync.outputs.has_update == 'true'
         run: |
           if [ -d "web" ]; then
             cd web
@@ -56,11 +71,13 @@ jobs:
           fi
 
       - name: Install Build Tools
+        if: steps.sync.outputs.has_update == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y zip curl
 
       - name: Run Kodi Addon Build Script
+        if: steps.sync.outputs.has_update == 'true'
         run: |
           chmod +x ./build_kodi_addon.sh
           echo "Building Universal package..."
@@ -71,6 +88,7 @@ jobs:
           SKIP_BUILD_WEB=1 ./build_kodi_addon.sh arm64
 
       - name: Determine Version and Locate Assets
+        if: steps.sync.outputs.has_update == 'true'
         id: get_info
         run: |
           VERSION="v0.4.4-Beta"
@@ -86,6 +104,7 @@ jobs:
           ls -l dist/service.litepan-*.zip
 
       - name: Create or Update GitHub Release
+        if: steps.sync.outputs.has_update == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
