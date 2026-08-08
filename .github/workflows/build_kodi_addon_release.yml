@@ -26,18 +26,15 @@ jobs:
           git remote add upstream https://github.com/Ponphil/LitePan.git || true
           git fetch upstream main
 
-          LOCAL_SHA=$(git rev-parse HEAD)
-          UPSTREAM_SHA=$(git rev-parse upstream/main)
+          NEW_COMMITS_COUNT=$(git rev-list --count HEAD..upstream/main)
+          echo "New commits count from upstream: ${NEW_COMMITS_COUNT}"
 
-          echo "Local Commit SHA:    ${LOCAL_SHA}"
-          echo "Upstream Commit SHA: ${UPSTREAM_SHA}"
-
-          # 判断上游代码变动（如果是定时触发且没有新 Commit 则跳过打包）
-          if [ "${LOCAL_SHA}" = "${UPSTREAM_SHA}" ] && [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "No new commit from upstream. Skipping build and release."
+          # 判断上游代码变动（如果是定时触发且新 Commit 数量为 0 则跳过打包）
+          if [ "${NEW_COMMITS_COUNT}" -eq 0 ] && [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "No new commits from upstream. Skipping build and release."
             echo "has_update=false" >> $GITHUB_OUTPUT
           else
-            echo "New updates detected (or manually triggered). Merging upstream code..."
+            echo "New updates detected (${NEW_COMMITS_COUNT} commits, or manually triggered). Merging upstream code..."
             if ! git merge upstream/main --no-edit; then
               echo "Merge encountered conflicts, aborting merge to preserve local files..."
               git merge --abort || true
