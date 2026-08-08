@@ -2,7 +2,7 @@ name: Sync Upstream & Release Kodi Addon
 
 on:
   schedule:
-    - cron: '*/5 * * * *' # 每 5 分钟自动检查一次上游是否有代码更新
+    - cron: '18 * * * *' # 每 1 小时自动检查一次上游更新（避开整点排队高峰）
   workflow_dispatch: # 支持在 GitHub Web 界面手动一键触发
 
 permissions:
