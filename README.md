@@ -77,7 +77,7 @@
 
 ## ▎ 快速开始
 
-**Docker Compose 部署** · 镜像标签：`Beta`或指定`v0.4.7-Beta`
+**Docker Compose 部署** · 镜像标签：`Beta`或指定`v0.4.8-Beta`
 
 ```yaml
 services:
@@ -87,6 +87,9 @@ services:
     restart: unless-stopped
     ports:
       - "5211:5211"
+      # 内置 Magnet 的 TCP/uTP/DHT 监听端口；若在后台修改，需同步调整映射
+      - "42069:42069/tcp"
+      - "42069:42069/udp"
     environment:
       - TZ=Asia/Shanghai
       # 可选：大陆网络下 TMDB 官方域名不稳定时，可覆盖为可访问的 API 域名
@@ -151,7 +154,7 @@ services:
 第三方依赖见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。请遵守各网盘服务条款与当地法规。
 
 [docker-pulls-shield]: https://img.shields.io/docker/pulls/ponphil/litepan?logo=docker&logoColor=white&style=flat-square
-[version-shield]: https://img.shields.io/badge/Version-v0.4.7--Beta-6C63FF?style=flat-square
+[version-shield]: https://img.shields.io/badge/Version-v0.4.8--Beta-6C63FF?style=flat-square
 [license-shield]: https://img.shields.io/badge/License-PolyForm%20NC-red?style=flat-square
 [docker-url]: https://hub.docker.com/r/ponphil/litepan
 [license-url]: ./LICENSE
