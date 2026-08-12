@@ -29,6 +29,45 @@ func IsSeasonDirName(name string) bool {
 	return ParseSeasonDirNumber(name) != nil
 }
 
+// IsSingleSeasonShowDir 判断"片名.第X季 / 片名.Season X"这类单季作品根目录：
+// 目录同时携带季信息与独立剧集标题，应作为作品根处理，而不是被当成季子目录跳过。
+func IsSingleSeasonShowDir(name string) bool {
+	best := seasonInfoStart(name)
+	if best <= 0 {
+		return false
+	}
+	title := strings.TrimSpace(NormalizeParsedMedia(ParseDirName(name[:best])).Title)
+	if title == "" {
+		return false
+	}
+	if IsGenericMediaDir(title) || isCollectionContainerDir(title, nil) || isSpecialContentDirName(title) {
+		return false
+	}
+	return len([]rune(title)) >= 2
+}
+
+// SingleSeasonShowDirTitle 返回单季作品根中季信息之前的干净剧集标题（如「脱口秀和Ta的朋友们.第二季…」→「脱口秀和Ta的朋友们」）。
+func SingleSeasonShowDirTitle(name string) string {
+	best := seasonInfoStart(name)
+	if best <= 0 {
+		return ""
+	}
+	return strings.TrimSpace(NormalizeParsedMedia(ParseDirName(name[:best])).Title)
+}
+
+// seasonInfoStart 返回季信息最早出现的位置；无季信息返回 -1。
+func seasonInfoStart(name string) int {
+	best := -1
+	for _, item := range seasonDirPatterns {
+		if loc := item.re.FindStringSubmatchIndex(name); len(loc) >= 2 {
+			if best < 0 || loc[0] < best {
+				best = loc[0]
+			}
+		}
+	}
+	return best
+}
+
 var explicitSeasonTokenRe = regexp.MustCompile(`(?i)(?:^|[^a-z])(?:s\d{1,3}e\d{1,4}|\d{1,3}\s*x\s*\d{1,4}|season\s*\d{1,3})|第\s*(?:\d{1,3}|[零〇一二两三四五六七八九十百]+)\s*季`)
 
 // 显式季号优先于解析默认 Season=1
@@ -76,9 +115,11 @@ func LooksLikeTVFileWithName(parsed ParsedMedia, ancestors []Ancestor, fileName 
 }
 
 func PickTVShowInfo(ancestors []Ancestor, fileParsed ParsedMedia) (showDirID, showDirName string, parsed ParsedMedia) {
+	var fallbackShowID, fallbackShowName string
+	var fallbackParsed ParsedMedia
 	for idx := len(ancestors) - 1; idx >= 0; idx-- {
 		dir := ancestors[idx]
-		if IsGenericMediaDir(dir.Name) || IsSeasonDirName(dir.Name) || IsEpisodeRangeDirName(dir.Name) ||
+		if IsGenericMediaDir(dir.Name) || (IsSeasonDirName(dir.Name) && !IsSingleSeasonShowDir(dir.Name)) || IsEpisodeRangeDirName(dir.Name) ||
 			isCollectionContainerDir(dir.Name, nil) || isStructuralSpecialDirName(dir.Name) {
 			continue
 		}
@@ -88,9 +129,22 @@ func PickTVShowInfo(ancestors []Ancestor, fileParsed ParsedMedia) (showDirID, sh
 			}
 		}
 		dirParsed := NormalizeParsedMedia(ParseDirName(dir.Name))
+		if IsSingleSeasonShowDir(dir.Name) {
+			if title := SingleSeasonShowDirTitle(dir.Name); title != "" {
+				dirParsed.Title = title
+			}
+			// 单季作品根先记为候选：外层若有真正的片名目录则用外层，内层降级为季目录。
+			if fallbackShowID == "" {
+				fallbackShowID, fallbackShowName, fallbackParsed = dir.ID, dir.Name, dirParsed
+			}
+			continue
+		}
 		if dirParsed.Title != "" {
 			return dir.ID, dir.Name, dirParsed
 		}
+	}
+	if fallbackShowID != "" {
+		return fallbackShowID, fallbackShowName, fallbackParsed
 	}
 	title := strings.TrimSpace(fileParsed.Title)
 	return "", "", ParsedMedia{
@@ -205,6 +259,50 @@ func looksLikeStandaloneMovieDir(name string) bool {
 		return true
 	}
 	return ScoreTitleForTMDB(title) >= 0.45
+}
+
+// FileNameCarriesShowIdentity 判断番外/特别篇目录里的文件名是否包含祖先剧集名。
+// 用于"文件名没写集号但明显属于某剧集的番外"场景：归入剧集 Season 00 而非独立电影。
+// 剧场版/映画等明确电影暗示、或带 TMDB ID 的目录，仍按独立电影处理。
+func FileNameCarriesShowIdentity(name string, ancestors []Ancestor) bool {
+	if name == "" || len(ancestors) == 0 {
+		return false
+	}
+	if standaloneMovieDirHintRe.MatchString(name) {
+		return false
+	}
+	hasSpecial := false
+	for _, anc := range ancestors {
+		if !isSpecialContentDirName(anc.Name) {
+			continue
+		}
+		if standaloneMovieDirHintRe.MatchString(anc.Name) || FindTMDBIDInName(anc.Name) != "" {
+			return false
+		}
+		hasSpecial = true
+	}
+	if !hasSpecial {
+		return false
+	}
+	fileKey := strongTMDBTitleKey(name)
+	if fileKey == "" {
+		return false
+	}
+	for i := len(ancestors) - 1; i >= 0; i-- {
+		dir := ancestors[i]
+		if IsGenericMediaDir(dir.Name) || IsSeasonDirName(dir.Name) || IsEpisodeRangeDirName(dir.Name) ||
+			isCollectionContainerDir(dir.Name, nil) || isSpecialContentDirName(dir.Name) {
+			continue
+		}
+		showKey := strongTMDBTitleKey(dir.Name)
+		if len(showKey) < 2 {
+			continue
+		}
+		if strings.Contains(fileKey, showKey) {
+			return true
+		}
+	}
+	return false
 }
 
 func IsStandaloneMovieDirName(name string) bool {
