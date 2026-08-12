@@ -73,14 +73,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y zip curl
 
-      - name: Run Kodi Addon Build Script
+      - name: Run Kodi Addon Build Script (ARM64)
         if: steps.sync.outputs.has_update == 'true'
         run: |
           chmod +x ./build_kodi_addon.sh
-          echo "Building Universal package..."
-          SKIP_BUILD_WEB=1 ./build_kodi_addon.sh universal
-          echo "Building ARMv7 package..."
-          SKIP_BUILD_WEB=1 ./build_kodi_addon.sh armv7
           echo "Building ARM64 package..."
           SKIP_BUILD_WEB=1 ./build_kodi_addon.sh arm64
 
@@ -97,8 +93,8 @@ jobs:
           fi
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           
-          echo "Generated ZIP packages:"
-          ls -l dist/service.litepan-*.zip
+          echo "Generated ARM64 ZIP package:"
+          ls -l dist/service.litepan-*-arm64.zip
 
       - name: Create or Update GitHub Release
         if: steps.sync.outputs.has_update == 'true'
@@ -107,14 +103,14 @@ jobs:
         run: |
           VERSION="${{ steps.get_info.outputs.VERSION }}"
           
-          echo "Releasing version ${VERSION} with all zip assets to repository ${{ github.repository }}..."
+          echo "Releasing version ${VERSION} with ARM64 zip asset to repository ${{ github.repository }}..."
           
           if gh release view "${VERSION}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            echo "Release ${VERSION} already exists in ${{ github.repository }}, uploading assets..."
-            gh release upload "${VERSION}" dist/service.litepan-*.zip --clobber --repo "${{ github.repository }}"
+            echo "Release ${VERSION} already exists in ${{ github.repository }}, uploading asset..."
+            gh release upload "${VERSION}" dist/service.litepan-*-arm64.zip --clobber --repo "${{ github.repository }}"
           else
             echo "Release ${VERSION} does not exist in ${{ github.repository }}, creating release..."
-            gh release create "${VERSION}" dist/service.litepan-*.zip \
+            gh release create "${VERSION}" dist/service.litepan-*-arm64.zip \
               --repo "${{ github.repository }}" \
               --title "LitePan Kodi Addon ${VERSION}" \
               --notes "Auto-built Kodi Addon release synchronized from upstream Ponphil/LitePan."
