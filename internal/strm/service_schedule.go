@@ -159,6 +159,7 @@ func (s *Service) runTaskAsync(task *domain.StrmTask) {
 		result, err := ScanTask(ctx, task, ScanDeps{
 			Files:       s.files,
 			Branches:    s.branches,
+			DirCache:    s.dirCache,
 			Playback:    s.playback,
 			StrmDir:     s.StrmDir(),
 			BaseURL:     s.scanBaseURL(),
