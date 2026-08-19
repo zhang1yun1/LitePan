@@ -166,7 +166,6 @@ func (s *Service) SetConfig(ctx context.Context, enabled bool, mountRoot *string
 	s.log.Info("FUSE 挂载根目录已更新", "mount_root", root, "restart_required", true)
 	return nil
 }
-}
 
 func (s *Service) Status(ctx context.Context) map[string]any {
 	out := map[string]any{
