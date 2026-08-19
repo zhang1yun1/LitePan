@@ -70,7 +70,6 @@ jobs:
       - name: Install Build Tools
         if: steps.sync.outputs.has_update == 'true'
         run: |
-          sudo apt-get update
           sudo apt-get install -y zip curl
 
       - name: Run Kodi Addon Build Script (ARM64)
