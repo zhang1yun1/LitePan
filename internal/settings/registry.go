@@ -28,12 +28,15 @@ const (
 	KeyLogLevel                    = "log_level"
 	KeyLogRetentionDays            = "log_retention_days"
 	KeyLogErrorAckAt               = "log_error_ack_at"
+	KeyAnnouncementReadVersion     = "announcement_read_version"
 	KeyEmbyEnabled                 = "emby_enabled"
 	KeyEmbyProxyInstances          = "emby_proxy_instances"
 	KeyFnosEnabled                 = "fnos_enabled"
+	KeyFnosName                    = "fnos_name"
 	KeyFnosURL                     = "fnos_url"
 	KeyFnosProxyPort               = "fnos_proxy_port"
 	KeyFnosStrmPathMaps            = "fnos_strm_path_maps"
+	KeyFnosDirectSTRMClients       = "fnos_direct_strm_clients"
 	KeyStrmToken                   = "strm_token"
 	KeyStrmBaseURL                 = "strm_base_url"
 	KeyStrmSignatureEnabled        = "strm_signature_enabled"
@@ -50,8 +53,14 @@ const (
 	KeyStrmTool115TreeEnabled      = "strm_tool_115_tree_enabled"
 	KeyLocalUploadEnabled          = "local_upload_enabled"
 	KeyLocalUploadMappings         = "local_upload_mappings"
+	KeyCoverExtractEnabled         = "cover_extract_enabled"
+	KeyCoverExtractStyle           = "cover_extract_style"
 	KeyQuarkTVEnabled              = "quark_tv_enabled"
+	KeyQuarkTVPlayMode             = "quark_tv_play_mode"
+	KeyQuarkTVClientListMode       = "quark_tv_client_list_mode"
+	KeyQuarkTVProxyClients         = "quark_tv_proxy_clients"
 	KeyStrmScrapeWriteMode         = "strm_scrape_write_mode"
+	KeyStrmScrapeScopes            = "strm_scrape_scopes"
 
 	KeyMOProxyEnabled          = "mo_proxy_enabled"
 	KeyMOProxyURL              = "mo_proxy_url"
@@ -59,6 +68,8 @@ const (
 	KeyMOProxyPassword         = "mo_proxy_password"
 	KeyMOTmdbAPIKey            = "mo_tmdb_api_key"
 	KeyMOTmdbLanguage          = "mo_tmdb_language"
+	KeyMOTmdbAPIHost           = "mo_tmdb_api_host"
+	KeyMOTmdbImageHost         = "mo_tmdb_image_host"
 	KeyMOAPIRequestIntervalMS  = "mo_api_request_interval_ms"
 	KeyMOTmdbRequestIntervalMS = "mo_tmdb_request_interval_ms"
 	KeyMOFileExtensions        = "mo_file_extensions"
@@ -68,9 +79,12 @@ const (
 	KeyMOMaxWorksPerRun        = "mo_max_works_per_run"
 	KeyMOOverwriteExisting     = "mo_overwrite_existing"
 	KeyAIOrganizeEnabled       = "ai_organize_enabled"
+	KeyAIOrganizeInstances     = "ai_organize_instances"
 	KeyAIOrganizeBaseURL       = "ai_organize_base_url"
 	KeyAIOrganizeAPIKey        = "ai_organize_api_key"
 	KeyAIOrganizeModel         = "ai_organize_model"
+	KeyMOClassificationEnabled = "mo_classification_enabled"
+	KeyMOClassificationConfig  = "mo_classification_config"
 )
 
 // Type 决定后台表单控件与校验方式。
@@ -133,15 +147,6 @@ func selectSpec(key, category, label, description, def string, options []Option)
 
 func defaultSpecs() []Spec {
 	specs := []Spec{
-		{
-			Key:         KeyOAuthServerURL,
-			Type:        TypeString,
-			Category:    "system",
-			Label:       "OAuth 代理服务地址",
-			Description: "添加账号时「自动获取 Token」经此服务转发。留空或无效地址将回落默认值。本地调试可填 http://127.0.0.1:8000。",
-			Default:     domain.DefaultOAuthServerURL,
-			normalize:   domain.NormalizeOAuthServerURL,
-		},
 		boolSpec(KeyCacheEnabled, "performance", "启用元数据缓存", "关闭后所有目录列表都直连网盘，不走缓存。", "true"),
 		intSpec(KeyCacheTTL, "performance", "全局缓存时间", "缓存过期时间", "30", "分钟", 0, 1440),
 		intSpec(KeyCacheMaxItems, "performance", "缓存条目上限", "元数据缓存最多保留的条目数，超出按 LRU 淘汰。", "10000", "条", 1000, 1000000),
@@ -173,9 +178,11 @@ func defaultSpecs() []Spec {
 		{Key: KeyEmbyEnabled, Type: TypeBool, Default: "false", Hidden: true},
 		{Key: KeyEmbyProxyInstances, Type: TypeString, Default: "[]", Sensitive: true, Hidden: true},
 		boolSpec(KeyFnosEnabled, "fnos", "启用飞牛影视反代", "开启后且填写反代端口时，LitePan 会启动飞牛影视反代服务。", "false"),
+		stringSpec(KeyFnosName, "fnos", "飞牛影视配置名称", "飞牛影视反代配置的名称，仅用于界面区分。", "飞牛影视"),
 		stringSpec(KeyFnosURL, "fnos", "飞牛影视地址", "飞牛影视服务地址，默认端口 8005，例如 http://192.168.1.10:8005。", ""),
 		stringSpec(KeyFnosProxyPort, "fnos", "反代端口", "可留空。填写并启用后，LitePan 会在该端口启动飞牛影视反代服务。", ""),
 		stringSpec(KeyFnosStrmPathMaps, "fnos", "飞牛 STRM 目录", "填写 Docker 中映射到 /app/strm 的左边路径。例：/vol1/.../LitePanGO:/app/strm → 填 /vol1/.../LitePanGO。两边相同可留空。", ""),
+		{Key: KeyFnosDirectSTRMClients, Type: TypeString, Default: "Infuse", Hidden: true},
 		stringSpec(KeyStrmToken, "strm", "STRM 播放令牌", "STRM 播放路径鉴权令牌，请在系统设置「API 秘钥」中管理。", ""),
 		stringSpec(KeyStrmBaseURL, "strm", "STRM 基础地址", "生成本地 .strm 时使用的站点基址（例如 https://example.com）。留空时使用当前服务监听地址。", ""),
 		boolSpec(KeyStrmSignatureEnabled, "strm", "启用 STRM 路径签名", "开启后 /api/strm/play 路径必须携带有效签名。", "false"),
@@ -185,7 +192,7 @@ func defaultSpecs() []Spec {
 		intSpec(KeyStrmMinFileSizeMB, "strm", "小文件过滤", "忽略小于该大小的媒体文件，0 表示不过滤。", "0", "MB", 0, 10240),
 		stringSpec(KeyStrmConflictPolicy, "strm", "同名冲突策略", "同目录同名不同后缀时保留哪一个：size_desc / size_asc / name_asc。", "size_desc"),
 		intSpec(KeyStrmTaskConcurrency, "strm", "STRM 任务并发", "同时运行的 STRM 扫描任务上限。", "3", "", 1, 10),
-		stringSpec(KeyStrmMetadataExtensions, "strm", "元数据扩展名", "任务开启同步元数据时使用的扩展名，英文分号分隔。", "srt;ass;ssa;sub;sup;idx;vtt;nfo;jpg;jpeg;png;webp;bmp"),
+		stringSpec(KeyStrmMetadataExtensions, "strm", "元数据扩展名", "任务开启同步元数据时使用的扩展名，英文分号分隔。", "srt;ass;ssa;sub;sup;idx;vtt;nfo;jpg;jpeg;png;webp;bmp;gif"),
 		intSpec(KeyStrmMetadataMaxSizeMB, "strm", "元数据大小上限", "同步元数据时忽略超过该大小的文件。", "10", "MB", 1, 1024),
 		boolSpec(KeyStrmMetadataParentEnabled, "strm", "父目录元数据同步", "子目录有影片时，也同步父目录下的海报、nfo 等元数据。", "true"),
 		boolSpec(KeyStrmTool115TreeEnabled, "strm", "115 网盘 STRM 增强（目录树清单模式）", "开启后 115Open 账号的 STRM 任务改用全量清单 + 增量对账方式执行，减少逐目录递归请求；配了分支的任务维持原逻辑。", "false"),
@@ -195,12 +202,15 @@ func defaultSpecs() []Spec {
 			{Value: "bidirectional", Label: "本地与云端互补"},
 		}),
 		stringSpec(KeyStrmScrapeWriteMode, "strm", "STRM 刮削写入策略", "missing_only=仅补缺；overwrite=覆盖已有 nfo/海报。", "missing_only"),
+		{Key: KeyStrmScrapeScopes, Type: TypeString, Default: "{}", Hidden: true},
 		boolSpec(KeyMOProxyEnabled, "media_organize", "启用代理", "TMDB 请求经代理出站。", "false"),
 		stringSpec(KeyMOProxyURL, "media_organize", "代理地址", "HTTP/HTTPS 代理地址，例如 http://127.0.0.1:7890。", ""),
 		stringSpec(KeyMOProxyUsername, "media_organize", "代理用户名", "代理认证用户名，无认证可留空。", ""),
 		stringSpec(KeyMOProxyPassword, "media_organize", "代理密码", "代理认证密码。", ""),
 		stringSpec(KeyMOTmdbAPIKey, "media_organize", "TMDB API Key", "The Movie Database API 密钥。", ""),
 		stringSpec(KeyMOTmdbLanguage, "media_organize", "TMDB 搜索语言", "TMDB 搜索与详情语言，例如 zh-CN。", "zh-CN"),
+		stringSpec(KeyMOTmdbAPIHost, "media_organize", "TMDB API 主域名", "自建反代时填写主域名，程序自动补 /3。", "https://api.themoviedb.org"),
+		stringSpec(KeyMOTmdbImageHost, "media_organize", "TMDB 图片主域名", "自建反代时填写主域名，程序自动补 /t/p。", "https://image.tmdb.org"),
 		intSpec(KeyMOAPIRequestIntervalMS, "media_organize", "API 额外补偿间隔", "网盘 API 请求之间的额外等待时间。", "300", "毫秒", 50, 10000),
 		intSpec(KeyMOTmdbRequestIntervalMS, "media_organize", "TMDB 请求间隔", "两次 TMDB API 请求之间的最小间隔。", "250", "毫秒", 100, 5000),
 		stringSpec(KeyMOFileExtensions, "media_organize", "媒体文件扩展名", "参与整理的媒体扩展名，英文分号分隔。", "mkv;mp4;avi;ts;mov;wmv;iso;m2ts;rmvb;flv;m4v;webm"),
@@ -214,6 +224,13 @@ func defaultSpecs() []Spec {
 			Type:    TypeBool,
 			Default: "false",
 			Hidden:  true,
+		},
+		{
+			Key:       KeyAIOrganizeInstances,
+			Type:      TypeString,
+			Default:   "[]",
+			Sensitive: true,
+			Hidden:    true,
 		},
 		{
 			Key:     KeyAIOrganizeBaseURL,
@@ -235,7 +252,34 @@ func defaultSpecs() []Spec {
 			Hidden:  true,
 		},
 		{
+			Key:     KeyMOClassificationEnabled,
+			Type:    TypeBool,
+			Default: "false",
+			Hidden:  true,
+		},
+		{
+			Key:     KeyMOClassificationConfig,
+			Type:    TypeString,
+			Default: "",
+			Hidden:  true,
+		},
+		{
+			Key:         KeyOAuthServerURL,
+			Type:        TypeString,
+			Category:    "system",
+			Label:       "OAuth 代理服务地址",
+			Description: "添加账号时「自动获取 Token」经此服务转发。留空或无效地址将回落默认值。本地调试可填 http://127.0.0.1:8000。",
+			Default:     domain.DefaultOAuthServerURL,
+			normalize:   domain.NormalizeOAuthServerURL,
+		},
+		{
 			Key:     KeyLogErrorAckAt,
+			Type:    TypeString,
+			Default: "",
+			Hidden:  true,
+		},
+		{
+			Key:     KeyAnnouncementReadVersion,
 			Type:    TypeString,
 			Default: "",
 			Hidden:  true,
@@ -253,9 +297,40 @@ func defaultSpecs() []Spec {
 			Hidden:  true,
 		},
 		{
+			Key:     KeyCoverExtractEnabled,
+			Type:    TypeBool,
+			Default: "false",
+			Hidden:  true,
+		},
+		{
+			// 海报默认样式（JSON）：shape/height/panel_color/opacity/text_color/packaged
+			Key:     KeyCoverExtractStyle,
+			Type:    TypeString,
+			Default: "",
+			Hidden:  true,
+		},
+		{
 			Key:     KeyQuarkTVEnabled,
 			Type:    TypeBool,
 			Default: "false",
+			Hidden:  true,
+		},
+		{
+			Key:     KeyQuarkTVPlayMode,
+			Type:    TypeString,
+			Default: "adaptive",
+			Hidden:  true,
+		},
+		{
+			Key:     KeyQuarkTVClientListMode,
+			Type:    TypeString,
+			Default: "proxy_list",
+			Hidden:  true,
+		},
+		{
+			Key:     KeyQuarkTVProxyClients,
+			Type:    TypeString,
+			Default: "vidhub",
 			Hidden:  true,
 		},
 	}
