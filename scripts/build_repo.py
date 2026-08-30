@@ -51,12 +51,16 @@ def process_dir(target_dir):
     all_addon_xmls = []
 
     # 扫描 zips 目录下的各个插件目录 (如 zips/plugin.video.juku, zips/service.litepan)
-    for item in zips_root.iterdir():
+    for item in sorted(zips_root.iterdir()):
         if item.is_dir():
+            print(f"[DEBUG] 扫描到目录: {item.name}")
             xml_content = get_addon_xml_content(item)
             if xml_content:
                 cleaned = clean_xml_header(xml_content)
                 all_addon_xmls.append(cleaned)
+                print(f"[DEBUG] 成功提取 {item.name} 的 addon.xml (长度: {len(cleaned)})")
+            else:
+                print(f"[WARN] 无法提取 {item.name} 的 addon.xml")
 
     # 生成 zips 根目录统一的 addons.xml 与 md5
     if all_addon_xmls:
@@ -70,7 +74,7 @@ def process_dir(target_dir):
         md5_str = hashlib.md5(content.encode('utf-8')).hexdigest()
         out_md5 = zips_root / "addons.xml.md5"
         out_md5.write_text(md5_str, encoding='utf-8')
-        print(f"[SUCCESS] 生成插件库统一索引: {out_xml} (MD5: {md5_str})")
+        print(f"[SUCCESS] 生成插件库统一索引: {out_xml} (共 {len(unique_xmls)} 个插件, MD5: {md5_str})")
     else:
         print(f"[WARN] 未在 {zips_root} 下找到任何有效的插件目录")
 
