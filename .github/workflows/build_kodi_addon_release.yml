@@ -132,10 +132,12 @@ jobs:
             exit 1
           fi
           
-          # 复制标准命名的 zip 包、addon.xml 和 icon.png
+          # 复制标准命名的 zip 包
           cp "${ZIP_SRC}" "${STAGING_DIR}/service.litepan-${KODI_VER}.zip"
-          cp "dist/kodi_build/service.litepan/addon.xml" "${STAGING_DIR}/addon.xml"
-          cp "dist/kodi_build/service.litepan/icon.png" "${STAGING_DIR}/icon.png"
+          
+          # 从 ZIP 中提取 addon.xml 与 icon.png
+          unzip -p "${ZIP_SRC}" "service.litepan/addon.xml" > "${STAGING_DIR}/addon.xml"
+          unzip -p "${ZIP_SRC}" "service.litepan/icon.png" > "${STAGING_DIR}/icon.png"
           
           # 3. 配置 SSH 密钥与环境
           mkdir -p ~/.ssh
