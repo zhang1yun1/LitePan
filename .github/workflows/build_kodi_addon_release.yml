@@ -145,15 +145,15 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -p "${SERVER_PORT}" -H "${SERVER_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-          # 4. 同步插件文件到远程插件库目录
+          # 4. 同步插件文件到远程插件库目录 (使用 rsync 并设置所有文件和目录具有公共读取权限)
           echo "正在同步插件包至 ${SERVER_HOST}:${SERVER_PATH}/zips/service.litepan/ ..."
           ssh -p "${SERVER_PORT}" -o StrictHostKeyChecking=no "${SERVER_USER}@${SERVER_HOST}" "mkdir -p ${SERVER_PATH}/zips/service.litepan"
-          rsync -avz -e "ssh -p ${SERVER_PORT} -o StrictHostKeyChecking=no" dist/repo_staging/zips/service.litepan/ "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/zips/service.litepan/"
+          rsync -avz --perms --chmod=a+rX -e "ssh -p ${SERVER_PORT} -o StrictHostKeyChecking=no" dist/repo_staging/zips/service.litepan/ "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/zips/service.litepan/"
           
           # 5. 上传并执行 build_repo.py 更新全局 addons.xml 和 md5 索引
           echo "正在更新远程插件库索引 addons.xml 与 md5..."
-          rsync -avz -e "ssh -p ${SERVER_PORT} -o StrictHostKeyChecking=no" scripts/build_repo.py "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/build_repo.py"
-          ssh -p "${SERVER_PORT}" -o StrictHostKeyChecking=no "${SERVER_USER}@${SERVER_HOST}" "chmod -R a+rX ${SERVER_PATH}/zips && python3 ${SERVER_PATH}/build_repo.py ${SERVER_PATH}"
+          rsync -avz --perms --chmod=a+rX -e "ssh -p ${SERVER_PORT} -o StrictHostKeyChecking=no" scripts/build_repo.py "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/build_repo.py"
+          ssh -p "${SERVER_PORT}" -o StrictHostKeyChecking=no "${SERVER_USER}@${SERVER_HOST}" "python3 ${SERVER_PATH}/build_repo.py ${SERVER_PATH} && chmod -R a+rX ${SERVER_PATH}"
 
           echo "=========================================="
           echo "插件已成功发布至 Kodi 插件库！"
