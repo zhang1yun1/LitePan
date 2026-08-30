@@ -49,28 +49,10 @@ jobs:
         with:
           go-version: 'stable'
 
-      - name: Setup Node.js Environment
-        if: steps.sync.outputs.has_update == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-          cache-dependency-path: 'web/package-lock.json'
-
-      - name: Install & Build Web Frontend
-        if: steps.sync.outputs.has_update == 'true'
-        run: |
-          if [ -d "web" ]; then
-            cd web
-            npm ci || npm install
-            echo "Building Web frontend once for all architecture targets..."
-            npm run build
-          fi
-
       - name: Install Build Tools
         if: steps.sync.outputs.has_update == 'true'
         run: |
-          sudo apt-get install -y zip curl
+          sudo apt-get update && sudo apt-get install -y zip curl
 
       - name: Run Kodi Addon Build Script (ARM64)
         if: steps.sync.outputs.has_update == 'true'
@@ -83,12 +65,14 @@ jobs:
         if: steps.sync.outputs.has_update == 'true'
         id: get_info
         run: |
-          VERSION="v0.4.4-Beta"
-          if [ -f "internal/httpx/user_agent.go" ]; then
+          VERSION="v0.5.2-Beta"
+          if [ -f "internal/buildinfo/version.go" ]; then
+            EXTRACTED_VER=$(grep 'Version =' internal/buildinfo/version.go | cut -d '"' -f 2)
+          elif [ -f "internal/httpx/user_agent.go" ]; then
             EXTRACTED_VER=$(grep 'AppVersion =' internal/httpx/user_agent.go | cut -d '"' -f 2)
-            if [ -n "${EXTRACTED_VER}" ]; then
-              VERSION="${EXTRACTED_VER}"
-            fi
+          fi
+          if [ -n "${EXTRACTED_VER}" ]; then
+            VERSION="${EXTRACTED_VER}"
           fi
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           
