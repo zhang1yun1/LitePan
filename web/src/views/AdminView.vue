@@ -20,7 +20,6 @@ const adminPageLoaders = {
   dashboard: () => import("@/components/admin/DashboardManagement.vue"),
   accounts: () => import("@/components/admin/AccountManagement.vue"),
   settings: () => import("@/components/admin/SystemSettings.vue"),
-  paths: () => import("@/components/admin/StoragePathSettings.vue"),
   tasks: () => import("@/components/admin/TaskManagement.vue"),
   tools: () => import("@/components/admin/AuxToolsManagement.vue"),
   "cross-transfer": () => import("@/components/admin/CrossDriveTransfer.vue"),
@@ -29,7 +28,6 @@ const adminPageLoaders = {
 const DashboardManagement = defineAsyncComponent(adminPageLoaders.dashboard);
 const AccountManagement = defineAsyncComponent(adminPageLoaders.accounts);
 const SystemSettings = defineAsyncComponent(adminPageLoaders.settings);
-const StoragePathSettings = defineAsyncComponent(adminPageLoaders.paths);
 const TaskManagement = defineAsyncComponent(adminPageLoaders.tasks);
 const AuxToolsManagement = defineAsyncComponent(adminPageLoaders.tools);
 const CrossDriveTransfer = defineAsyncComponent(adminPageLoaders["cross-transfer"]);
@@ -48,7 +46,6 @@ const nav = [
   { key: "dashboard", label: "仪表盘", icon: "tachometer-alt" },
   { key: "accounts", label: "存储管理", icon: "hdd" },
   { key: "settings", label: "系统设置", icon: "cogs" },
-  { key: "paths", label: "存储路径", icon: "folder-tree" },
   { key: "tasks", label: "任务管理", icon: "tasks" },
   { key: "tools", label: "辅助工具", icon: "toolbox" },
   { key: "cross-transfer", label: "跨盘秒传", icon: "right-left" },
@@ -318,7 +315,7 @@ onBeforeUnmount(() => {
     />
 
     <AdminEmptyState
-      v-if="!cachedPageComponent && !['settings', 'paths', 'cross-transfer', 'share'].includes(page)"
+      v-if="!cachedPageComponent && !['settings', 'cross-transfer', 'share'].includes(page)"
       icon="🚧"
       :title="`「${nav.find((n) => n.key === page)?.label}」功能开发中`"
     />
@@ -330,7 +327,6 @@ onBeforeUnmount(() => {
         @password-updated="handlePasswordUpdated"
         @admin-ui-updated="loadAdminUiConfig"
       />
-      <StoragePathSettings v-else-if="page === 'paths'" />
       <CrossDriveTransfer v-else-if="page === 'cross-transfer'" />
       <FileShareManagement v-else-if="page === 'share'" />
       <component :is="cachedPageComponent" v-else-if="cachedPageComponent" :key="page" />

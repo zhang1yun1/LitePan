@@ -190,9 +190,9 @@ class LitePanService(xbmc.Monitor):
         except Exception as e:
             xbmc.log(f"[LitePan] 设置可执行权限警告: {str(e)}", xbmc.LOGWARNING)
 
-        # 注入挂载根目录与 STRM 目录环境变量
+        # 注入挂载根目录与 STRM 目录环境变量 (上游原生支持)
         env = os.environ.copy()
-        env['LITEPAN_MOUNT_DIR'] = '/storage/videos/mount'
+        env['LITEPAN_MOUNT_ROOT'] = '/storage/videos/mount'
         env['LITEPAN_STRM_DIR'] = '/storage/videos/strm'
 
         xbmc.log(f"[LitePan] 正在启动后台服务 (Mount: /storage/videos/mount, STRM: /storage/videos/strm)，使用的二进制文件: {self.bin_path}", xbmc.LOGINFO)
@@ -200,6 +200,7 @@ class LitePanService(xbmc.Monitor):
             self.process = subprocess.Popen(
                 [
                     self.bin_path,
+                    "-data-dir", os.path.join(self.data_dir, "data"),
                     "-strm-dir", "/storage/videos/strm"
                 ],
                 cwd=self.data_dir,

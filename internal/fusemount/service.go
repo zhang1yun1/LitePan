@@ -182,21 +182,6 @@ func (s *Service) SetEnabled(ctx context.Context, on bool) error {
 	return nil
 }
 
-func (s *Service) MountRoot() string {
-	if s.configs != nil {
-		if v, ok, err := s.configs.Get(context.Background(), "mount_root_dir"); err == nil && ok && strings.TrimSpace(v) != "" {
-			return filepath.Clean(strings.TrimSpace(v))
-		}
-		if v, ok, err := s.configs.Get(context.Background(), KeyMountRoot); err == nil && ok && strings.TrimSpace(v) != "" {
-			return filepath.Clean(strings.TrimSpace(v))
-		}
-	}
-	if v := strings.TrimSpace(os.Getenv("LITEPAN_MOUNT_DIR")); v != "" {
-		return filepath.Clean(v)
-	}
-	return filepath.Clean(MountRoot)
-}
-
 // ApplyConfiguredMountRoot 在启动装配时调用：界面设置 > 环境变量 > 默认值。
 // 环境变量与默认值已在 MountRoot 初始化时解析，这里只处理界面保存的值；修改后需重启生效。
 func ApplyConfiguredMountRoot(ctx context.Context, configs domain.ConfigRepository) {
@@ -239,7 +224,7 @@ func (s *Service) Status(ctx context.Context) map[string]any {
 	out := map[string]any{
 		"enabled":         s.Enabled(ctx),
 		"compile_support": s.Compiled(),
-		"mount_root":      s.MountRoot(),
+		"mount_root":      MountRoot,
 		"entry_timeout_s": DefaultEntryTimeoutS,
 		"attr_timeout_s":  DefaultAttrTimeoutS,
 	}
@@ -283,7 +268,7 @@ func (s *Service) Create(ctx context.Context, m *domain.FuseMount) (*domain.Fuse
 		return nil, err
 	}
 	DefaultMount(m)
-	if err := ValidateMount(m, all, 0, s.MountRoot()); err != nil {
+	if err := ValidateMount(m, all, 0); err != nil {
 		return nil, err
 	}
 	if err := reclaimMountPoint(m.MountPoint); err != nil {
@@ -335,7 +320,7 @@ func (s *Service) Update(ctx context.Context, m *domain.FuseMount) (*domain.Fuse
 	m.State = domain.FuseStateUnmounted
 	m.LastError = ""
 	DefaultMount(m)
-	if err := ValidateMount(m, all, m.ID, s.MountRoot()); err != nil {
+	if err := ValidateMount(m, all, m.ID); err != nil {
 		return nil, err
 	}
 	if err := reclaimMountPoint(m.MountPoint); err != nil {
@@ -593,7 +578,7 @@ func (s *Service) unmountKnown(ctx context.Context, m *domain.FuseMount) error {
 }
 
 func (s *Service) cleanupOrphanMountDirs(known []*domain.FuseMount) {
-	root := s.MountRoot()
+	root := filepath.Clean(MountRoot)
 	entries, err := os.ReadDir(root)
 	if err != nil {
 		return
@@ -669,7 +654,7 @@ func (s *Service) ensureSourceDirByList(ctx context.Context, m *domain.FuseMount
 }
 
 func (s *Service) PrepareMountRoot() error {
-	return os.MkdirAll(s.MountRoot(), 0o755)
+	return os.MkdirAll(filepath.Clean(MountRoot), 0o755)
 }
 
 func (s *Service) mountFields(m *domain.FuseMount) []any {

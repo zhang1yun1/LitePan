@@ -146,7 +146,7 @@ func selectSpec(key, category, label, description, def string, options []Option)
 }
 
 func defaultSpecs() []Spec {
-	specs := []Spec{
+	return []Spec{
 		boolSpec(KeyCacheEnabled, "performance", "启用元数据缓存", "关闭后所有目录列表都直连网盘，不走缓存。", "true"),
 		intSpec(KeyCacheTTL, "performance", "全局缓存时间", "缓存过期时间", "30", "分钟", 0, 1440),
 		intSpec(KeyCacheMaxItems, "performance", "缓存条目上限", "元数据缓存最多保留的条目数，超出按 LRU 淘汰。", "10000", "条", 1000, 1000000),
@@ -334,15 +334,12 @@ func defaultSpecs() []Spec {
 			Hidden:  true,
 		},
 	}
-	specs = append(specs, pathsSpecs()...)
-	return specs
 }
 
 // categories 返回有序分组定义；只保留当前实际用到的分组。
 func categories() []Category {
 	return []Category{
 		{ID: "system", Label: "系统设置"},
-		{ID: "paths", Label: "存储路径"},
 		{ID: "account_display", Label: "网盘账号显示"},
 		{ID: "performance", Label: "性能设置"},
 		{ID: "strm", Label: "STRM 设置"},

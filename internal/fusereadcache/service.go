@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"litepan/internal/settings"
@@ -23,11 +22,6 @@ type Options struct {
 
 func New(ctx context.Context, opts Options) (*Service, error) {
 	root := filepath.Join(opts.DataDir, SubdirName)
-	if opts.Settings != nil {
-		if dir := strings.TrimSpace(opts.Settings.FuseReadCacheDir()); dir != "" {
-			root = filepath.Clean(dir)
-		}
-	}
 	if err := validateRoot(root); err != nil {
 		return nil, err
 	}

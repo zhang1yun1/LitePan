@@ -280,7 +280,7 @@ func (s *Service) prepareCurrentDirectoryWork(ctx context.Context, accountID int
 		parentID:        parentID,
 		relDirs:         relDirs,
 		outputFolder:    outputFolder,
-		root:            s.StrmDir(),
+		root:            s.strmDir,
 		scanCfg:         scanCfg,
 		selected:        selected,
 		metadataItems:   metadataItems,
