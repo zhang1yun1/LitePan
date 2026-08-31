@@ -172,10 +172,11 @@ class LitePanService(xbmc.Monitor):
         for sub_dir in ['data', 'strm', 'mounts']:
             os.makedirs(os.path.join(self.data_dir, sub_dir), exist_ok=True)
 
-        # 确保 CoreELEC 专属视频与挂载目录存在
+        # 确保 CoreELEC 专属视频、挂载与数据存储目录存在
         try:
             os.makedirs('/storage/videos/strm', exist_ok=True)
             os.makedirs('/storage/videos/mount', exist_ok=True)
+            os.makedirs('/storage/videos/litepandata', exist_ok=True)
         except Exception as e:
             xbmc.log(f"[LitePan] 创建 /storage/videos 目录警告: {str(e)}", xbmc.LOGWARNING)
 
@@ -190,20 +191,22 @@ class LitePanService(xbmc.Monitor):
         except Exception as e:
             xbmc.log(f"[LitePan] 设置可执行权限警告: {str(e)}", xbmc.LOGWARNING)
 
-        # 注入挂载根目录与 STRM 目录环境变量 (上游原生支持)
+        # 注入数据存储、挂载根目录与 STRM 目录环境变量 (上游原生支持)
+        data_dir = '/storage/videos/litepandata'
         env = os.environ.copy()
+        env['LITEPAN_DATA_DIR'] = data_dir
         env['LITEPAN_MOUNT_ROOT'] = '/storage/videos/mount'
         env['LITEPAN_STRM_DIR'] = '/storage/videos/strm'
 
-        xbmc.log(f"[LitePan] 正在启动后台服务 (Mount: /storage/videos/mount, STRM: /storage/videos/strm)，使用的二进制文件: {self.bin_path}", xbmc.LOGINFO)
+        xbmc.log(f"[LitePan] 正在启动后台服务 (Data: {data_dir}, Mount: /storage/videos/mount, STRM: /storage/videos/strm)，使用的二进制文件: {self.bin_path}", xbmc.LOGINFO)
         try:
             self.process = subprocess.Popen(
                 [
                     self.bin_path,
-                    "-data-dir", os.path.join(self.data_dir, "data"),
+                    "-data-dir", data_dir,
                     "-strm-dir", "/storage/videos/strm"
                 ],
-                cwd=self.data_dir,
+                cwd=data_dir,
                 env=env,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
@@ -283,7 +286,8 @@ echo " 使用说明："
 echo " 1. 将 ${ZIP_NAME} 传输到 CoreELEC / Kodi 设备上。"
 echo " 2. 在 Kodi 中进入: 插件 -> 从 ZIP 文件安装。"
 echo " 3. 插件会自动判断 32位(ARMv7) / 64位(ARM64) 架构并自动启动 LitePan 后台。"
-echo " 4. 挂载根目录现已自动切换为: /storage/videos/mount 。"
-echo " 5. STRM 输出路径现已自动切换为: /storage/videos/strm 。"
-echo " 6. 在局域网浏览器打开 http://<CoreELEC_IP>:5211 进行管理。"
+echo " 4. 数据与读缓存目录自动配置为: /storage/videos/litepandata 。"
+echo " 5. 挂载根目录现已自动切换为: /storage/videos/mount 。"
+echo " 6. STRM 输出路径现已自动切换为: /storage/videos/strm 。"
+echo " 7. 在局域网浏览器打开 http://<CoreELEC_IP>:5211 进行管理。"
 echo "=================================================="
