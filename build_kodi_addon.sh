@@ -27,8 +27,8 @@ if [ -n "${EXTRACTED_VER}" ]; then
     APP_VERSION="${EXTRACTED_VER}"
 fi
 
-# 插件独立发布版本号 (支持插件补丁版本，如 0.5.3.1)
-KODI_VERSION="${KODI_ADDON_VERSION:-0.5.3.1}"
+# 插件独立发布版本号 (支持插件补丁版本，如 0.5.3.2)
+KODI_VERSION="${KODI_ADDON_VERSION:-0.5.3.2}"
 VERSION="v${KODI_VERSION}"
 
 # 参数解析
@@ -41,6 +41,7 @@ echo " 构建目标架构: ${ARCH_PARAM}"
 echo "=================================================="
 
 mkdir -p "${ADDON_DIR}/bin"
+mkdir -p "${ADDON_DIR}/resources"
 mkdir -p "${DIST_DIR}"
 
 compile_go() {
@@ -99,8 +100,8 @@ else
     ZIP_ARCH_TAG="universal"
 fi
 
-# 3. 生成 Kodi 插件描述文件 (addon.xml)
-echo "[3/5] 生成 Kodi 插件描述文件 (addon.xml)..."
+# 3. 生成 Kodi 插件描述文件 (addon.xml) 与 设置配置 (resources/settings.xml)
+echo "[3/5] 生成 Kodi 插件描述文件 (addon.xml) 与 设置配置 (settings.xml)..."
 cat <<EOF > "${ADDON_DIR}/addon.xml"
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addon id="${ADDON_ID}" name="LitePan Background Service" version="${KODI_VERSION}" provider-name="LitePan">
@@ -120,8 +121,41 @@ cat <<EOF > "${ADDON_DIR}/addon.xml"
 </addon>
 EOF
 
-# 4. 生成支持多架构自动判断及 CoreELEC 专属路径配置的 Kodi 服务守护脚本 (service.py)
-echo "[4/5] 生成 CoreELEC 专属路径配置的 Kodi 服务守护脚本 (service.py)..."
+cat <<EOF > "${ADDON_DIR}/resources/settings.xml"
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<settings version="1">
+    <section id="${ADDON_ID}">
+        <category id="paths" label="存储路径配置">
+            <group id="1" label="数据与存储路径">
+                <setting id="data_dir" type="string" label="数据保存目录 (留空使用默认目录)">
+                    <level>0</level>
+                    <default></default>
+                    <control type="button" format="folder">
+                        <heading>选择数据保存目录 (留空则使用默认目录)</heading>
+                    </control>
+                </setting>
+                <setting id="mount_dir" type="string" label="本地挂载根目录">
+                    <level>0</level>
+                    <default>/storage/videos/mount</default>
+                    <control type="button" format="folder">
+                        <heading>选择本地挂载根目录</heading>
+                    </control>
+                </setting>
+                <setting id="strm_dir" type="string" label="STRM 输出目录">
+                    <level>0</level>
+                    <default>/storage/videos/strm</default>
+                    <control type="button" format="folder">
+                        <heading>选择 STRM 输出目录</heading>
+                    </control>
+                </setting>
+            </group>
+        </category>
+    </section>
+</settings>
+EOF
+
+# 4. 生成支持多架构自动判断、动态设置读取及自动热重启的 Kodi 服务守护脚本 (service.py)
+echo "[4/5] 生成支持动态路径配置的 Kodi 服务守护脚本 (service.py)..."
 cat <<'EOF' > "${ADDON_DIR}/service.py"
 # -*- coding: utf-8 -*-
 import os
@@ -130,13 +164,15 @@ import subprocess
 import platform
 import time
 import xbmc
+import xbmcaddon
 import xbmcvfs
 
 class LitePanService(xbmc.Monitor):
     def __init__(self):
         super().__init__()
-        self.addon_dir = xbmcvfs.translatePath('special://home/addons/service.litepan/')
-        self.data_dir = xbmcvfs.translatePath('special://profile/addon_data/service.litepan/')
+        self.addon = xbmcaddon.Addon('service.litepan')
+        self.addon_dir = xbmcvfs.translatePath(self.addon.getAddonInfo('path'))
+        self.profile_dir = xbmcvfs.translatePath(self.addon.getAddonInfo('profile'))
         self.bin_path = self.detect_binary()
         self.process = None
 
@@ -170,17 +206,38 @@ class LitePanService(xbmc.Monitor):
 
         return os.path.join(bin_dir, 'litepan')
 
-    def start_process(self):
-        # 建立数据持久化目录
-        for sub_dir in ['data', 'strm', 'mounts']:
-            os.makedirs(os.path.join(self.data_dir, sub_dir), exist_ok=True)
+    def get_configured_paths(self):
+        # 1. 数据目录：优先读取用户自定义设置；若为空则默认使用 profile_dir/data
+        custom_data_dir = self.addon.getSetting('data_dir').strip()
+        if custom_data_dir:
+            data_path = xbmcvfs.translatePath(custom_data_dir)
+        else:
+            data_path = os.path.join(self.profile_dir, 'data')
 
-        # 确保 CoreELEC 专属视频与挂载目录存在
-        try:
-            os.makedirs('/storage/videos/strm', exist_ok=True)
-            os.makedirs('/storage/videos/mount', exist_ok=True)
-        except Exception as e:
-            xbmc.log(f"[LitePan] 创建 /storage/videos 目录警告: {str(e)}", xbmc.LOGWARNING)
+        # 2. 挂载根目录
+        custom_mount_dir = self.addon.getSetting('mount_dir').strip()
+        mount_path = xbmcvfs.translatePath(custom_mount_dir) if custom_mount_dir else '/storage/videos/mount'
+
+        # 3. STRM 目录
+        custom_strm_dir = self.addon.getSetting('strm_dir').strip()
+        strm_path = xbmcvfs.translatePath(custom_strm_dir) if custom_strm_dir else '/storage/videos/strm'
+
+        return data_path, mount_path, strm_path
+
+    def onSettingsChanged(self):
+        xbmc.log("[LitePan] 监听到插件设置发生变更，正在重启服务以应用新配置...", xbmc.LOGINFO)
+        self.stop_process()
+        self.start_process()
+
+    def start_process(self):
+        data_path, mount_path, strm_path = self.get_configured_paths()
+
+        # 确保所有路径目录存在
+        for p in [data_path, mount_path, strm_path, os.path.join(self.profile_dir, 'data')]:
+            try:
+                os.makedirs(p, exist_ok=True)
+            except Exception as e:
+                xbmc.log(f"[LitePan] 创建目录 {p} 警告: {str(e)}", xbmc.LOGWARNING)
 
         if not self.bin_path or not os.path.exists(self.bin_path):
             xbmc.log(f"[LitePan] 错误：找不到可执行的二进制文件 ({self.bin_path})", xbmc.LOGERROR)
@@ -193,20 +250,21 @@ class LitePanService(xbmc.Monitor):
         except Exception as e:
             xbmc.log(f"[LitePan] 设置可执行权限警告: {str(e)}", xbmc.LOGWARNING)
 
-        # 注入挂载根目录与 STRM 目录环境变量 (上游原生支持)
+        # 注入环境变量 (上游原生支持)
         env = os.environ.copy()
-        env['LITEPAN_MOUNT_ROOT'] = '/storage/videos/mount'
-        env['LITEPAN_STRM_DIR'] = '/storage/videos/strm'
+        env['LITEPAN_MOUNT_ROOT'] = mount_path
+        env['LITEPAN_STRM_DIR'] = strm_path
+        env['LITEPAN_DATA_DIR'] = data_path
 
-        xbmc.log(f"[LitePan] 正在启动后台服务 (Mount: /storage/videos/mount, STRM: /storage/videos/strm)，使用的二进制文件: {self.bin_path}", xbmc.LOGINFO)
+        xbmc.log(f"[LitePan] 正在启动后台服务 (Data: {data_path}, Mount: {mount_path}, STRM: {strm_path})，使用的二进制文件: {self.bin_path}", xbmc.LOGINFO)
         try:
             self.process = subprocess.Popen(
                 [
                     self.bin_path,
-                    "-data-dir", os.path.join(self.data_dir, "data"),
-                    "-strm-dir", "/storage/videos/strm"
+                    "-data-dir", data_path,
+                    "-strm-dir", strm_path
                 ],
-                cwd=self.data_dir,
+                cwd=data_path,
                 env=env,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
@@ -217,7 +275,7 @@ class LitePanService(xbmc.Monitor):
 
     def stop_process(self):
         if self.process and self.process.poll() is None:
-            xbmc.log("[LitePan] 收到 Kodi 退出信号，终止后台服务...", xbmc.LOGINFO)
+            xbmc.log("[LitePan] 收到退出信号，终止后台服务...", xbmc.LOGINFO)
             self.process.terminate()
             try:
                 self.process.wait(timeout=5)
