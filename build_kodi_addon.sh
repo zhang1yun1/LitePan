@@ -123,34 +123,12 @@ EOF
 
 cat <<EOF > "${ADDON_DIR}/resources/settings.xml"
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<settings version="1">
-    <section id="${ADDON_ID}">
-        <category id="paths" label="存储路径配置">
-            <group id="1" label="数据与存储路径">
-                <setting id="data_dir" type="string" label="数据保存目录 (留空使用默认目录)">
-                    <level>0</level>
-                    <default></default>
-                    <control type="button" format="folder">
-                        <heading>选择数据保存目录 (留空则使用默认目录)</heading>
-                    </control>
-                </setting>
-                <setting id="mount_dir" type="string" label="本地挂载根目录">
-                    <level>0</level>
-                    <default>/storage/videos/mount</default>
-                    <control type="button" format="folder">
-                        <heading>选择本地挂载根目录</heading>
-                    </control>
-                </setting>
-                <setting id="strm_dir" type="string" label="STRM 输出目录">
-                    <level>0</level>
-                    <default>/storage/videos/strm</default>
-                    <control type="button" format="folder">
-                        <heading>选择 STRM 输出目录</heading>
-                    </control>
-                </setting>
-            </group>
-        </category>
-    </section>
+<settings>
+    <category label="存储路径配置">
+        <setting id="data_dir" type="folder" label="数据保存目录 (留空使用默认目录)" default="" />
+        <setting id="mount_dir" type="folder" label="本地挂载根目录" default="/storage/videos/mount" />
+        <setting id="strm_dir" type="folder" label="STRM 输出目录" default="/storage/videos/strm" />
+    </category>
 </settings>
 EOF
 
