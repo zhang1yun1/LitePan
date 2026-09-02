@@ -27,8 +27,8 @@ if [ -n "${EXTRACTED_VER}" ]; then
     APP_VERSION="${EXTRACTED_VER}"
 fi
 
-# 插件独立发布版本号 (支持插件补丁版本，如 0.5.3.2)
-KODI_VERSION="${KODI_ADDON_VERSION:-0.5.3.2}"
+# 插件独立发布版本号 (支持插件补丁版本，如 0.5.3.3)
+KODI_VERSION="${KODI_ADDON_VERSION:-0.5.3.3}"
 VERSION="v${KODI_VERSION}"
 
 # 参数解析
