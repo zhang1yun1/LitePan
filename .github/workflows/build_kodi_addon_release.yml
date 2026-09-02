@@ -65,17 +65,27 @@ jobs:
         if: steps.sync.outputs.has_update == 'true'
         id: get_info
         run: |
-          VERSION="v0.5.2-Beta"
-          if [ -f "internal/buildinfo/version.go" ]; then
-            EXTRACTED_VER=$(grep 'Version =' internal/buildinfo/version.go | cut -d '"' -f 2)
-          elif [ -f "internal/httpx/user_agent.go" ]; then
-            EXTRACTED_VER=$(grep 'AppVersion =' internal/httpx/user_agent.go | cut -d '"' -f 2)
+          VERSION="v0.5.3-Beta"
+          ZIP_SRC=$(ls dist/service.litepan-*-arm64.zip | head -n 1)
+          if [ -f "${ZIP_SRC}" ]; then
+            KODI_VER=$(unzip -p "${ZIP_SRC}" "service.litepan/addon.xml" | grep '<addon ' | sed -n 's/.*version="\([^"]*\)".*/\1/p')
+            if [ -n "${KODI_VER}" ]; then
+              VERSION="v${KODI_VER}"
+            fi
           fi
-          if [ -n "${EXTRACTED_VER}" ]; then
-            VERSION="${EXTRACTED_VER}"
+          if [ -z "${KODI_VER}" ]; then
+            if [ -f "internal/buildinfo/version.go" ]; then
+              EXTRACTED_VER=$(grep 'Version =' internal/buildinfo/version.go | cut -d '"' -f 2)
+            elif [ -f "internal/httpx/user_agent.go" ]; then
+              EXTRACTED_VER=$(grep 'AppVersion =' internal/httpx/user_agent.go | cut -d '"' -f 2)
+            fi
+            if [ -n "${EXTRACTED_VER}" ]; then
+              VERSION="${EXTRACTED_VER}"
+            fi
           fi
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           
+          echo "Determined Version: ${VERSION}"
           echo "Generated ARM64 ZIP package:"
           ls -l dist/service.litepan-*-arm64.zip
 

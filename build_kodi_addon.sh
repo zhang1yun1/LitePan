@@ -16,17 +16,20 @@ ADDON_DIR="${BUILD_DIR}/${ADDON_ID}"
 
 
 
-# 版本信息（自动从代码中提取或默认）
-VERSION="v0.4.4-Beta"
-if [ -f "${ROOT_DIR}/internal/httpx/user_agent.go" ]; then
+# 主程序版本信息（自动从代码中提取）
+APP_VERSION="v0.5.3-Beta"
+if [ -f "${ROOT_DIR}/internal/buildinfo/version.go" ]; then
+    EXTRACTED_VER=$(grep 'Version =' "${ROOT_DIR}/internal/buildinfo/version.go" | cut -d '"' -f 2)
+elif [ -f "${ROOT_DIR}/internal/httpx/user_agent.go" ]; then
     EXTRACTED_VER=$(grep 'AppVersion =' "${ROOT_DIR}/internal/httpx/user_agent.go" | cut -d '"' -f 2)
-    if [ -n "${EXTRACTED_VER}" ]; then
-        VERSION="${EXTRACTED_VER}"
-    fi
+fi
+if [ -n "${EXTRACTED_VER}" ]; then
+    APP_VERSION="${EXTRACTED_VER}"
 fi
 
-# 去除版本号开头的 'v'，适应 Kodi 版本规范 (例如 0.4.4)
-KODI_VERSION=$(echo "${VERSION}" | sed 's/^v//' | sed 's/-.*//')
+# 插件独立发布版本号 (支持插件补丁版本，如 0.5.3.1)
+KODI_VERSION="${KODI_ADDON_VERSION:-0.5.3.1}"
+VERSION="v${KODI_VERSION}"
 
 # 参数解析
 ARCH_PARAM="${1:-all}"  # 默认打全架构通用包 (all, armv7, arm64 或 指定二进制文件路径)
