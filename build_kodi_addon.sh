@@ -27,8 +27,8 @@ if [ -n "${EXTRACTED_VER}" ]; then
     APP_VERSION="${EXTRACTED_VER}"
 fi
 
-# 插件独立发布版本号 (支持插件补丁版本，如 0.5.3.3)
-KODI_VERSION="${KODI_ADDON_VERSION:-0.5.3.3}"
+# 插件独立发布版本号 (支持插件补丁版本，如 0.5.3.4)
+KODI_VERSION="${KODI_ADDON_VERSION:-0.5.3.4}"
 VERSION="v${KODI_VERSION}"
 
 # 参数解析
@@ -128,6 +128,9 @@ cat <<EOF > "${ADDON_DIR}/resources/settings.xml"
         <setting id="data_dir" type="folder" label="数据保存目录 (留空使用默认目录)" default="" />
         <setting id="mount_dir" type="folder" label="本地挂载根目录" default="/storage/videos/mount" />
         <setting id="strm_dir" type="folder" label="STRM 输出目录" default="/storage/videos/strm" />
+    </category>
+    <category label="自动更新设置">
+        <setting id="auto_check_update" type="bool" label="自动触发插件库更新检测 (开机及定时)" default="true" />
     </category>
 </settings>
 EOF
@@ -265,10 +268,21 @@ if __name__ == '__main__':
     service = LitePanService()
     service.start_process()
 
+    # 启动时延迟 20 秒后执行首次检查，之后每 4 小时 (14400 秒) 检查一次插件库
+    CHECK_INTERVAL = 14400
+    last_check_time = time.time() - CHECK_INTERVAL + 20
+
     while not service.waitForAbort(1):
         if service.process and service.process.poll() is not None:
             xbmc.log("[LitePan] 监测到后台进程退出，重新拉起保活...", xbmc.LOGWARNING)
             service.start_process()
+
+        now = time.time()
+        if now - last_check_time >= CHECK_INTERVAL:
+            last_check_time = now
+            if service.addon.getSetting('auto_check_update') != 'false':
+                xbmc.log("[LitePan] 正在自动触发 Kodi 插件库更新检测 (UpdateAddonRepos)...", xbmc.LOGINFO)
+                xbmc.executebuiltin('UpdateAddonRepos')
 
     service.stop_process()
 EOF
