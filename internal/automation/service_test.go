@@ -39,11 +39,9 @@ func TestRefreshDirectoryClearsOnlyFollowingAccountDirectoryCaches(t *testing.T)
 		Strm:     strmSvc,
 	})
 
-	result := service.runCacheClear(context.Background(), map[string]any{
-		"_following_actions": []RuleAction{
-			{Type: domain.AutomationActionOrganize, Params: map[string]any{"task_id": "org-1"}},
-			{Type: domain.AutomationActionStrm, Params: map[string]any{"task_id": 10}},
-		},
+	result := service.executeAction(context.Background(), RuleAction{Type: domain.AutomationActionCacheClear}, []RuleAction{
+		{Type: domain.AutomationActionOrganize, Params: map[string]any{"task_id": "org-1"}},
+		{Type: domain.AutomationActionStrm, Params: map[string]any{"task_id": 10}},
 	})
 	if result["success"] != true || result["message"] != "已刷新 1 个账号的目录缓存" {
 		t.Fatalf("刷新结果异常: %#v", result)
@@ -380,6 +378,12 @@ func TestEvaluateOrganizeAction(t *testing.T) {
 		riskTotal   int
 		messagePart string
 	}{
+		{
+			name:      "全部正常跳过不阻断",
+			summary:   map[string]any{"total": 67, "skipped": 67, "normal_skipped": 67},
+			completed: true, success: true, risk: 0, riskTotal: 0,
+			messagePart: "异常比例 0%",
+		},
 		{
 			name: "异常跳过未超过允许比例",
 			summary: map[string]any{

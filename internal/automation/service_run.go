@@ -74,12 +74,7 @@ func (s *Service) runRule(id int64, triggerSource string) {
 		}
 		if shouldRunAction(action.Condition, previousSuccess, i) {
 			s.setRunningStep(id, i, actionDisplayName(action), action.Type)
-			runAction := action
-			if action.Type == domain.AutomationActionCacheClear {
-				runAction.Params = cloneMap(action.Params)
-				runAction.Params["_following_actions"] = actions[i+1:]
-			}
-			result := s.executeAction(ctx, runAction)
+			result := s.executeAction(ctx, action, actions[i+1:])
 			for k, v := range result {
 				step[k] = v
 			}
@@ -114,10 +109,10 @@ func (s *Service) runRule(id int64, triggerSource string) {
 	_ = s.rules.Update(ctx, rule)
 }
 
-func (s *Service) executeAction(ctx context.Context, action RuleAction) map[string]any {
+func (s *Service) executeAction(ctx context.Context, action RuleAction, following []RuleAction) map[string]any {
 	switch action.Type {
 	case domain.AutomationActionCacheClear:
-		return s.runCacheClear(ctx, action.Params)
+		return s.runCacheClear(ctx, following)
 	case domain.AutomationActionDelay:
 		return s.runDelay(ctx, action.Params)
 	case domain.AutomationActionOrganize:
@@ -135,11 +130,11 @@ func (s *Service) executeAction(ctx context.Context, action RuleAction) map[stri
 	}
 }
 
-func (s *Service) runCacheClear(ctx context.Context, params map[string]any) map[string]any {
+func (s *Service) runCacheClear(ctx context.Context, following []RuleAction) map[string]any {
 	if s.files == nil {
 		return map[string]any{"status": "failed", "success": false, "message": "文件服务未就绪"}
 	}
-	accountIDs := s.collectCacheClearAccountIDs(ctx, params["_following_actions"])
+	accountIDs := s.collectCacheClearAccountIDs(ctx, following)
 	if len(accountIDs) == 0 {
 		return map[string]any{"status": "failed", "success": false, "message": "刷新目录后面需要有整理任务或 STRM 任务"}
 	}
@@ -154,11 +149,7 @@ func (s *Service) runCacheClear(ctx context.Context, params map[string]any) map[
 	}
 }
 
-func (s *Service) collectCacheClearAccountIDs(ctx context.Context, raw any) []int64 {
-	actions, ok := raw.([]RuleAction)
-	if !ok {
-		return nil
-	}
+func (s *Service) collectCacheClearAccountIDs(ctx context.Context, actions []RuleAction) []int64 {
 	accountIDs := make([]int64, 0)
 	seen := make(map[int64]struct{})
 	addAccount := func(accountID int64) {
@@ -283,7 +274,7 @@ func evaluateOrganizeAction(summary, params map[string]any, runCompleted bool) o
 	failed := max(0, anyInt(summary["failed"]))
 	skipped := max(0, anyInt(summary["skipped"]))
 	normalSkipped := max(0, anyInt(summary["normal_skipped"]))
-	abnormalSkipped := skipped
+	abnormalSkipped := max(0, skipped-normalSkipped)
 	if summary["abnormal_skipped"] != nil {
 		abnormalSkipped = max(0, anyInt(summary["abnormal_skipped"]))
 	}
@@ -308,6 +299,9 @@ func evaluateOrganizeAction(summary, params map[string]any, runCompleted bool) o
 		message = fmt.Sprintf("整理存在失败项：%d 个", failed)
 	case risk > float64(maxRisk):
 		message = fmt.Sprintf("整理异常比例 %s%% 超过允许值 %d%%", strconv.FormatFloat(risk, 'f', -1, 64), maxRisk)
+	}
+	if abnormalSkipped > 0 {
+		message += fmt.Sprintf("（需关注 %d 项 / 需处理 %d 项，详情见整理日志）", abnormalSkipped, riskTotal)
 	}
 	return organizeActionOutcome{
 		success:         success,

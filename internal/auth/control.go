@@ -62,7 +62,7 @@ func (s *Service) initializeDriver(ctx context.Context, id int64, initialize fun
 		if ae, ok := domain.AsAppError(err); ok && (ae.Code == domain.CodeValidation || ae.Code == domain.CodeNotFound) {
 			return err
 		}
-		s.recordRefreshFailure(ctx, id, st, driver.ClassifyOAuthRefreshError(err), driver.CallerPassive, err)
+		s.recordRefreshFailure(ctx, id, driver.ClassifyOAuthRefreshError(err), driver.CallerPassive, err)
 		return err
 	}
 	if s.scope(ctx, id).persisted.Load() {
@@ -104,13 +104,7 @@ func (s *Service) refreshInline(ctx context.Context, id int64, drv driver.Driver
 		return nil
 	}
 	outcome, err := refresh(ctx)
-	if outcome == driver.RefreshSuccess && err == nil {
-		return s.finishRefresh(ctx, id, drv)
-	}
-	if err == nil {
-		err = domain.Errf(domain.CodeAuthExpired)
-	}
-	s.recordRefreshFailure(ctx, id, st, outcome, driver.CallerPassive, err)
+	_, err = s.completeRefresh(ctx, id, drv, driver.CallerPassive, outcome, err)
 	return err
 }
 
@@ -143,7 +137,22 @@ func (s *Service) finishRefresh(ctx context.Context, id int64, drv driver.Driver
 	return s.markSuccess(ctx, id, st, true)
 }
 
-func (s *Service) recordRefreshFailure(ctx context.Context, id int64, st *domain.AuthState, outcome driver.RefreshOutcome, caller driver.RefreshCaller, err error) {
+// completeRefresh 是所有刷新入口的唯一收尾：成功统一更新调度，失败统一记录冷却。
+func (s *Service) completeRefresh(ctx context.Context, id int64, drv driver.Driver, caller driver.RefreshCaller, outcome driver.RefreshOutcome, err error) (driver.RefreshOutcome, error) {
+	if outcome == driver.RefreshSuccess && err == nil {
+		if err := s.finishRefresh(ctx, id, drv); err != nil {
+			return driver.RefreshRetryable, err
+		}
+		return outcome, nil
+	}
+	if err == nil {
+		err = domain.Errf(domain.CodeAuthExpired)
+	}
+	s.recordRefreshFailure(ctx, id, outcome, caller, err)
+	return outcome, err
+}
+
+func (s *Service) recordRefreshFailure(ctx context.Context, id int64, outcome driver.RefreshOutcome, caller driver.RefreshCaller, err error) {
 	if errors.Is(err, context.Canceled) {
 		return
 	}
@@ -156,7 +165,6 @@ func (s *Service) recordRefreshFailure(ctx context.Context, id int64, st *domain
 		s.log.Warn("保存认证失败状态前读取失败", "account_id", id, "error", loadErr)
 		return
 	}
-	*st = *latest
-	s.handleFailure(writeCtx, id, st, outcome, caller, err)
-	s.log.Warn("账号认证刷新失败，已安排下次重试", "account_id", id, "caller", caller, "outcome", outcome.String(), "next_retry_at", st.NextRetryAt, "error", err)
+	s.handleFailure(writeCtx, id, latest, outcome, caller, err)
+	s.log.Warn("账号认证刷新失败，已安排下次重试", "account_id", id, "caller", caller, "outcome", outcome.String(), "next_retry_at", latest.NextRetryAt, "error", err)
 }
