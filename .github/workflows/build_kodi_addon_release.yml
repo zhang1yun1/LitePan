@@ -35,7 +35,7 @@ jobs:
             echo "has_update=false" >> $GITHUB_OUTPUT
           else
             echo "New updates detected (${NEW_COMMITS_COUNT} commits, or manually triggered). Merging upstream code..."
-            if ! git merge upstream/main --no-edit; then
+            if ! git merge upstream/main --no-edit -X theirs --allow-unrelated-histories; then
               echo "Merge encountered conflicts, aborting merge to preserve local files..."
               git merge --abort || true
             fi
