@@ -124,6 +124,7 @@ cat <<EOF > "${ADDON_DIR}/addon.xml"
 </addon>
 EOF
 
+mkdir -p "${ADDON_DIR}/resources"
 cat <<EOF > "${ADDON_DIR}/resources/settings.xml"
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <settings>
