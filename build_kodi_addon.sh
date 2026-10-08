@@ -30,8 +30,8 @@ fi
 # 基础版本号（去除开头的 'v' 及后缀，如 v0.5.4-Beta -> 0.5.4）
 BASE_KODI_VERSION=$(echo "${APP_VERSION}" | sed 's/^v//' | sed 's/-.*//')
 
-# 插件发布版本号（优先使用传入的 KODI_ADDON_VERSION，若未指定则自动跟随主程序版本）
-KODI_VERSION="${KODI_ADDON_VERSION:-${BASE_KODI_VERSION}}"
+# 插件发布版本号 (支持插件补丁版本，如 0.5.7.1)
+KODI_VERSION="${KODI_ADDON_VERSION:-0.5.7.1}"
 VERSION="v${KODI_VERSION}"
 
 # 参数解析
