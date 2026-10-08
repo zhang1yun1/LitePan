@@ -43,7 +43,7 @@ var config = driver.Config{
 	TokenLifetime:          30 * 24 * time.Hour,
 	RefreshAdvance:         10 * time.Hour,
 	UploadConflictPolicies: []string{"overwrite", "rename", "skip", "fail"},
-	InternalExperimental:   true,
+	InternalExperimental:   false,
 }
 
 func New() driver.Driver { return &Driver{} }

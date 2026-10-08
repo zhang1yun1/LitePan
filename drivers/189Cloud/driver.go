@@ -54,7 +54,7 @@ var config = driver.Config{
 	ProvideHashes:          []string{"md5"},
 	RapidUploadHashes:      []string{"md5"},
 	UploadConflictPolicies: []string{"overwrite", "rename", "skip", "fail"},
-	InternalExperimental:   true,
+	InternalExperimental:   false,
 }
 
 func New() driver.Driver { return &Driver{} }
