@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# LitePan Kodi (CoreELEC / Linux ARMv7 & ARM64) 插件包一键构建脚本
+# LitePan Kodi (CoreELEC / Linux ARMv7, ARM64 & AMD64) 插件包一键构建脚本
 # 作用: 自动应用 MountRoot 挂载根目录动态 Patch、交叉编译 Go 二进制并打成 ZIP 包
 # ==============================================================================
 
@@ -35,7 +35,7 @@ KODI_VERSION="${KODI_ADDON_VERSION:-0.5.7.1}"
 VERSION="v${KODI_VERSION}"
 
 # 参数解析
-ARCH_PARAM="${1:-all}"  # 默认打全架构通用包 (all, armv7, arm64 或 指定二进制文件路径)
+ARCH_PARAM="${1:-all}"  # 默认打全架构通用包 (all, armv7, arm64, amd64 或 指定二进制文件路径)
 
 echo "=================================================="
 echo " LitePan Kodi 插件一键构建工具"
@@ -95,6 +95,10 @@ elif [ "${ARCH_PARAM}" = "arm64" ] || [ "${ARCH_PARAM}" = "aarch64" ]; then
     echo "[2/5] 开始编译 ARM64 (64位 Linux ARM) 二进制..."
     compile_go "linux" "arm64" "" "litepan_arm64"
     ZIP_ARCH_TAG="arm64"
+elif [ "${ARCH_PARAM}" = "amd64" ] || [ "${ARCH_PARAM}" = "x86_64" ] || [ "${ARCH_PARAM}" = "linux-amd64" ] || [ "${ARCH_PARAM}" = "x64" ]; then
+    echo "[2/5] 开始编译 AMD64 (64位 Linux x86_64) 二进制..."
+    compile_go "linux" "amd64" "" "litepan_amd64"
+    ZIP_ARCH_TAG="amd64"
 else
     # 默认全架构打包 (同时打入 ARMv7 和 ARM64，实现 CoreELEC 双架构全兼容)
     echo "[2/5] 开始编译双架构 (ARMv7 32位 + ARM64 64位) 通用二进制..."
@@ -114,7 +118,7 @@ cat <<EOF > "${ADDON_DIR}/addon.xml"
   <extension point="xbmc.service" library="service.py" start="startup"/>
   <extension point="xbmc.addon.metadata">
     <summary lang="zh_CN">LitePan 网盘管理工具后台服务</summary>
-    <description lang="zh_CN">在 CoreELEC (ARMv7 / ARM64) 后台静默启动 LitePan 守护进程，保留完整 Web 管理界面 (默认端口 5211)。</description>
+    <description lang="zh_CN">在 CoreELEC / Linux (ARM / AMD64) 后台静默启动 LitePan 守护进程，保留完整 Web 管理界面 (默认端口 5211)。</description>
     <platform>linux</platform>
     <license>PolyForm NC</license>
     <assets>
@@ -169,12 +173,14 @@ class LitePanService(xbmc.Monitor):
         if os.path.exists(single_bin):
             return single_bin
 
-        # 2. 识别系统 CPU 架构选择 armv7 / arm64
+        # 2. 识别系统 CPU 架构选择 armv7 / arm64 / amd64
         machine = platform.machine().lower()
-        xbmc.log(f"[LitePan] 当前 CoreELEC 系统检测到的 CPU 架构为: {machine}", xbmc.LOGINFO)
+        xbmc.log(f"[LitePan] 当前系统检测到的 CPU 架构为: {machine}", xbmc.LOGINFO)
 
         target_name = 'litepan_armv7'
-        if 'aarch64' in machine or 'arm64' in machine:
+        if 'x86_64' in machine or 'amd64' in machine:
+            target_name = 'litepan_amd64'
+        elif 'aarch64' in machine or 'arm64' in machine:
             target_name = 'litepan_arm64'
         elif 'arm' in machine or 'armv7' in machine or 'armv6' in machine:
             target_name = 'litepan_armv7'
@@ -339,7 +345,7 @@ echo "=================================================="
 echo " 使用说明："
 echo " 1. 将 ${ZIP_NAME} 传输到 CoreELEC / Kodi 设备上。"
 echo " 2. 在 Kodi 中进入: 插件 -> 从 ZIP 文件安装。"
-echo " 3. 插件会自动判断 32位(ARMv7) / 64位(ARM64) 架构并自动启动 LitePan 后台。"
+echo " 3. 插件会自动判断 AMD64(x86_64) / 32位(ARMv7) / 64位(ARM64) 架构并自动启动 LitePan 后台。"
 echo " 4. 挂载根目录现已自动切换为: /storage/videos/mount 。"
 echo " 5. STRM 输出路径现已自动切换为: /storage/videos/strm 。"
 echo " 6. 在局域网浏览器打开 http://<CoreELEC_IP>:5211 进行管理。"
