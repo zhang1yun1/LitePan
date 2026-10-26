@@ -54,19 +54,21 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y zip curl
 
-      - name: Run Kodi Addon Build Script (ARM64)
+      - name: Run Kodi Addon Build Script (Multi-Architecture)
         if: steps.sync.outputs.has_update == 'true'
         run: |
           chmod +x ./build_kodi_addon.sh
-          echo "Building ARM64 package..."
-          SKIP_BUILD_WEB=1 ./build_kodi_addon.sh arm64
+          echo "Building Linux ARM64 (aarch64) package..."
+          SKIP_BUILD_WEB=1 ./build_kodi_addon.sh linux-aarch64
+          echo "Building Linux AMD64 (x86_64) package..."
+          SKIP_BUILD_WEB=1 ./build_kodi_addon.sh linux-x86_64
 
       - name: Determine Version and Locate Assets
         if: steps.sync.outputs.has_update == 'true'
         id: get_info
         run: |
           VERSION="v0.5.3-Beta"
-          ZIP_SRC=$(ls dist/service.litepan-*-arm64.zip | head -n 1)
+          ZIP_SRC=$(ls dist/service.litepan-*-linux-aarch64.zip 2>/dev/null | head -n 1 || ls dist/service.litepan-*.zip 2>/dev/null | head -n 1)
           if [ -f "${ZIP_SRC}" ]; then
             KODI_VER=$(unzip -p "${ZIP_SRC}" "service.litepan/addon.xml" | grep '<addon ' | sed -n 's/.*version="\([^"]*\)".*/\1/p')
             if [ -n "${KODI_VER}" ]; then
@@ -86,8 +88,8 @@ jobs:
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           
           echo "Determined Version: ${VERSION}"
-          echo "Generated ARM64 ZIP package:"
-          ls -l dist/service.litepan-*-arm64.zip
+          echo "Generated ZIP packages:"
+          ls -l dist/service.litepan-*.zip
 
       - name: Create or Update GitHub Release
         if: steps.sync.outputs.has_update == 'true'
@@ -96,14 +98,14 @@ jobs:
         run: |
           VERSION="${{ steps.get_info.outputs.VERSION }}"
           
-          echo "Releasing version ${VERSION} with ARM64 zip asset to repository ${{ github.repository }}..."
+          echo "Releasing version ${VERSION} with multi-architecture assets to repository ${{ github.repository }}..."
           
           if gh release view "${VERSION}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            echo "Release ${VERSION} already exists in ${{ github.repository }}, uploading asset..."
-            gh release upload "${VERSION}" dist/service.litepan-*-arm64.zip --clobber --repo "${{ github.repository }}"
+            echo "Release ${VERSION} already exists in ${{ github.repository }}, uploading assets..."
+            gh release upload "${VERSION}" dist/service.litepan-*.zip --clobber --repo "${{ github.repository }}"
           else
             echo "Release ${VERSION} does not exist in ${{ github.repository }}, creating release..."
-            gh release create "${VERSION}" dist/service.litepan-*-arm64.zip \
+            gh release create "${VERSION}" dist/service.litepan-*.zip \
               --repo "${{ github.repository }}" \
               --title "LitePan Kodi Addon ${VERSION}" \
               --notes "Auto-built Kodi Addon release synchronized from upstream Ponphil/LitePan."
@@ -129,25 +131,29 @@ jobs:
           echo "目标部署根目录: ${SERVER_PATH}"
           echo "=========================================="
 
-          # 1. 提取符合 Kodi 规范的纯点分版本号 (例如 0.5.2)
+          # 1. 提取符合 Kodi 规范的纯点分版本号 (例如 0.5.7.1)
           KODI_VER=$(echo "${VERSION}" | sed 's/^v//' | sed 's/-.*//')
           
           # 2. 组装插件库规范的 staging 目录
           STAGING_DIR="dist/repo_staging/zips/service.litepan"
           mkdir -p "${STAGING_DIR}"
           
-          ZIP_SRC=$(ls dist/service.litepan-*-arm64.zip | head -n 1)
-          if [ ! -f "${ZIP_SRC}" ]; then
-            echo "错误: 未找到构建好的 ZIP 产物！"
-            exit 1
-          fi
-          
-          # 复制标准命名的 zip 包
-          cp "${ZIP_SRC}" "${STAGING_DIR}/service.litepan-${KODI_VER}.zip"
-          
-          # 从 ZIP 中提取 addon.xml 与 icon.png
-          unzip -p "${ZIP_SRC}" "service.litepan/addon.xml" > "${STAGING_DIR}/addon.xml"
-          unzip -p "${ZIP_SRC}" "service.litepan/icon.png" > "${STAGING_DIR}/icon.png"
+          # 复制各架构 zip 包并统一命名，同时提取 icon.png
+          for zip_file in dist/service.litepan-*.zip; do
+            if [ -f "${zip_file}" ]; then
+              base_name=$(basename "${zip_file}")
+              # 提取平台后缀 (例如 linux-aarch64, linux-x86_64)
+              arch_suffix=$(echo "${base_name}" | sed -E 's/service\.litepan-v?[^-]+-(.+)\.zip/\1/')
+              if [ -n "${arch_suffix}" ] && [ "${arch_suffix}" != "${base_name}" ]; then
+                target_name="service.litepan-${KODI_VER}-${arch_suffix}.zip"
+              else
+                target_name="service.litepan-${KODI_VER}.zip"
+              fi
+              echo "Staging: ${base_name} -> ${target_name}"
+              cp "${zip_file}" "${STAGING_DIR}/${target_name}"
+              unzip -p "${zip_file}" "service.litepan/icon.png" > "${STAGING_DIR}/icon.png" 2>/dev/null || true
+            fi
+          done
           
           # 3. 配置 SSH 密钥与环境
           mkdir -p ~/.ssh

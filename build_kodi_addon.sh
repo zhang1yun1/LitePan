@@ -87,24 +87,29 @@ if [ -f "${ARCH_PARAM}" ]; then
     cp "${ARCH_PARAM}" "${ADDON_DIR}/bin/litepan"
     chmod +x "${ADDON_DIR}/bin/litepan"
     ZIP_ARCH_TAG="custom"
-elif [ "${ARCH_PARAM}" = "armv7" ] || [ "${ARCH_PARAM}" = "arm7" ] || [ "${ARCH_PARAM}" = "arm32" ]; then
+    ADDON_PLATFORM="linux"
+elif [ "${ARCH_PARAM}" = "armv7" ] || [ "${ARCH_PARAM}" = "arm7" ] || [ "${ARCH_PARAM}" = "arm32" ] || [ "${ARCH_PARAM}" = "linux-armv7" ]; then
     echo "[2/5] 开始编译 ARMv7 (32位 Linux ARM) 二进制..."
     compile_go "linux" "arm" "7" "litepan_armv7"
-    ZIP_ARCH_TAG="armv7"
-elif [ "${ARCH_PARAM}" = "arm64" ] || [ "${ARCH_PARAM}" = "aarch64" ]; then
+    ZIP_ARCH_TAG="linux-armv7"
+    ADDON_PLATFORM="linux-armv7 linux"
+elif [ "${ARCH_PARAM}" = "arm64" ] || [ "${ARCH_PARAM}" = "aarch64" ] || [ "${ARCH_PARAM}" = "linux-arm64" ] || [ "${ARCH_PARAM}" = "linux-aarch64" ]; then
     echo "[2/5] 开始编译 ARM64 (64位 Linux ARM) 二进制..."
     compile_go "linux" "arm64" "" "litepan_arm64"
-    ZIP_ARCH_TAG="arm64"
-elif [ "${ARCH_PARAM}" = "amd64" ] || [ "${ARCH_PARAM}" = "x86_64" ] || [ "${ARCH_PARAM}" = "linux-amd64" ] || [ "${ARCH_PARAM}" = "x64" ]; then
+    ZIP_ARCH_TAG="linux-aarch64"
+    ADDON_PLATFORM="linux-aarch64"
+elif [ "${ARCH_PARAM}" = "amd64" ] || [ "${ARCH_PARAM}" = "x86_64" ] || [ "${ARCH_PARAM}" = "linux-amd64" ] || [ "${ARCH_PARAM}" = "linux-x86_64" ] || [ "${ARCH_PARAM}" = "x64" ]; then
     echo "[2/5] 开始编译 AMD64 (64位 Linux x86_64) 二进制..."
     compile_go "linux" "amd64" "" "litepan_amd64"
-    ZIP_ARCH_TAG="amd64"
+    ZIP_ARCH_TAG="linux-x86_64"
+    ADDON_PLATFORM="linux-x86_64"
 else
     # 默认全架构打包 (同时打入 ARMv7 和 ARM64，实现 CoreELEC 双架构全兼容)
     echo "[2/5] 开始编译双架构 (ARMv7 32位 + ARM64 64位) 通用二进制..."
     compile_go "linux" "arm" "7" "litepan_armv7"
     compile_go "linux" "arm64" "" "litepan_arm64"
     ZIP_ARCH_TAG="universal"
+    ADDON_PLATFORM="linux"
 fi
 
 # 3. 生成 Kodi 插件描述文件 (addon.xml) 与 设置配置 (resources/settings.xml)
@@ -119,7 +124,7 @@ cat <<EOF > "${ADDON_DIR}/addon.xml"
   <extension point="xbmc.addon.metadata">
     <summary lang="zh_CN">LitePan 网盘管理工具后台服务</summary>
     <description lang="zh_CN">在 CoreELEC / Linux (ARM / AMD64) 后台静默启动 LitePan 守护进程，保留完整 Web 管理界面 (默认端口 5211)。</description>
-    <platform>linux</platform>
+    <platform>${ADDON_PLATFORM:-linux}</platform>
     <license>PolyForm NC</license>
     <assets>
       <icon>icon.png</icon>
