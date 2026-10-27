@@ -97,7 +97,7 @@ elif [ "${ARCH_PARAM}" = "arm64" ] || [ "${ARCH_PARAM}" = "aarch64" ] || [ "${AR
     echo "[2/5] 开始编译 ARM64 (64位 Linux ARM) 二进制..."
     compile_go "linux" "arm64" "" "litepan_arm64"
     ZIP_ARCH_TAG="linux-aarch64"
-    ADDON_PLATFORM="linux-aarch64"
+    ADDON_PLATFORM="linux-aarch64 linux"
 elif [ "${ARCH_PARAM}" = "amd64" ] || [ "${ARCH_PARAM}" = "x86_64" ] || [ "${ARCH_PARAM}" = "linux-amd64" ] || [ "${ARCH_PARAM}" = "linux-x86_64" ] || [ "${ARCH_PARAM}" = "x64" ]; then
     echo "[2/5] 开始编译 AMD64 (64位 Linux x86_64) 二进制..."
     compile_go "linux" "amd64" "" "litepan_amd64"

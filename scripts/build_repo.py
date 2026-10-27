@@ -147,15 +147,23 @@ def process_addon_dir(addon_dir: Path):
         platform_map[p['platform']] = p
 
     results = []
-    # 如果该插件有多个平台（或者单个明确平台），排序并生成对应带有 <path> 与 <platform> 的条目
-    for platform, pkg in sorted(platform_map.items()):
+    # 按照优先级排序：让精确平台 (如 linux-x86_64) 先输出，让带 linux 兜底的 linux-aarch64 后输出
+    # 这样当 Kodi 遇到完全同版本条目时，优先匹配精确架构，未识别架构的 Linux 则自然落入 linux-aarch64 兜底
+    ordered_platforms = sorted(platform_map.keys(), key=lambda p: (1 if p == 'linux-aarch64' else 0, p))
+    for platform in ordered_platforms:
+        pkg = platform_map[platform]
         root = pkg['root']
         metadata = pkg['metadata']
         if metadata is None:
             metadata = ET.SubElement(root, 'extension', point='xbmc.addon.metadata')
 
-        # 平台值适配（若为 linux-armv7，兼容老 CoreELEC）
-        platform_str = 'linux-armv7 linux' if platform == 'linux-armv7' else platform
+        # 平台值适配：让未识别架构的 Linux 统一兜底下载 ARM64 (linux-aarch64 linux)
+        if platform == 'linux-aarch64':
+            platform_str = 'linux-aarch64 linux'
+        elif platform == 'linux-armv7':
+            platform_str = 'linux-armv7'
+        else:
+            platform_str = platform
 
         # 更新/添加 platform 标签
         for p_old in metadata.findall('platform'):
