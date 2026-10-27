@@ -24,10 +24,18 @@ STANDARD_PLATFORMS = (
 )
 
 ARCH_ALIASES = {
+    'linux-arm64': 'linux-aarch64',
+    'linux-aarch64': 'linux-aarch64',
+    'linux-amd64': 'linux-x86_64',
+    'linux-x86_64': 'linux-x86_64',
+    'linux-x64': 'linux-x86_64',
+    'linux-armv7': 'linux-armv7',
+    'linux-arm': 'linux-armv7',
     'arm64': 'linux-aarch64',
     'aarch64': 'linux-aarch64',
     'amd64': 'linux-x86_64',
     'x86_64': 'linux-x86_64',
+    'x64': 'linux-x86_64',
     'armv7': 'linux-armv7',
     'arm7': 'linux-armv7',
 }
